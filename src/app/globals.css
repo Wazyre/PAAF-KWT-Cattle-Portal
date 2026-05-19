@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #f4f6f5;
+  color: #14241c;
+}
+
+.field-label {
+  @apply block text-sm font-semibold text-gray-700 mb-1;
+}
+
+.field-input {
+  @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base
+    outline-none focus:border-gov focus:ring-2 focus:ring-gov/30;
+}
+
+.field-input:disabled,
+.field-input[readonly] {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-gov px-5 py-2.5
+    font-bold text-white transition hover:bg-gov-dark disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg border border-gov
+    bg-white px-5 py-2.5 font-bold text-gov transition hover:bg-gov-light;
+}
+
+.card {
+  @apply rounded-xl border border-gray-200 bg-white p-5 shadow-sm;
+}
+
+.warn-box {
+  @apply rounded-lg border border-amber-400 bg-amber-50 p-4 text-amber-900;
+}
+
+.danger-box {
+  @apply rounded-lg border border-red-400 bg-red-50 p-4 text-red-900;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .card {
+    box-shadow: none;
+    border-color: #999;
+  }
+}
+
+/* Leaflet marker icons via CDN (no local asset pipeline needed) */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+}

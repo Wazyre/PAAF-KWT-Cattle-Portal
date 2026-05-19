@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Seeded national-ID lookup table. Swap for real Sahel/PACI SSO later
+/// by replacing the lookup in src/lib/identity.ts only.
+model Citizen {
+  civilId String @id
+  name    String
+}
+
+model Declaration {
+  id        Int      @id @default(autoincrement())
+  civilId   String
+  name      String
+  mobile    String
+  createdAt DateTime @default(now())
+
+  locations FarmLocation[]
+  audit     Audit?
+
+  @@index([civilId])
+}
+
+model FarmLocation {
+  id            Int            @id @default(autoincrement())
+  declarationId Int
+  gatheringPoint GatheringPoint
+  numTenders    Int
+  latitude      Float
+  longitude     Float
+  locationLink  String
+
+  declaration Declaration  @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  animals     AnimalGroup[]
+
+  @@index([declarationId])
+}
+
+model AnimalGroup {
+  id             Int        @id @default(autoincrement())
+  farmLocationId Int
+  animalType     AnimalType
+  chippedCount   Int
+  males          Int
+  females        Int
+
+  farmLocation FarmLocation @relation(fields: [farmLocationId], references: [id], onDelete: Cascade)
+
+  @@index([farmLocationId])
+}
+
+model Audit {
+  id              Int               @id @default(autoincrement())
+  declarationId   Int               @unique
+  chipReadStart   DateTime
+  chipReadEnd     DateTime
+  violationStatus ViolationStatus
+  differenceReason DifferenceReason?
+  createdAt       DateTime          @default(now())
+
+  declaration Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  readings    ChipReading[]
+}
+
+model ChipReading {
+  id               Int      @id @default(autoincrement())
+  auditId          Int
+  readAt           DateTime
+  chipNumber       String
+  rawChip          String
+  flaggedSymbol    Boolean  @default(false)
+  flaggedProximity Boolean  @default(false)
+
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+enum GatheringPoint {
+  WAFRA
+  JAHRA
+  KABD
+  ABDALI
+  MINA_ABDULLAH
+}
+
+enum AnimalType {
+  SHEEP_GOATS
+  CAMELS
+  COWS
+}
+
+enum ViolationStatus {
+  NONE
+  VIOLATION
+}
+
+enum DifferenceReason {
+  NOT_CHIPPED
+  UNREADABLE
+  MULTIPLE_CHIPS
+  UNREGISTERED_TRADE
+  SLAUGHTER_DEATH
+  OTHER
+}
