@@ -3,7 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb"
+      bodySizeLimit: "10mb",
+      allowedOrigins: ["localhost:3000", "*.trycloudflare.com"]
     }
   }
 };
