@@ -51,8 +51,39 @@ export async function submitAudit(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "يرجى رفع ملف قراءات الشرائح." };
   }
-  const content = await file.text();
+
+  let content: string;
+  try {
+    content = await file.text();
+  } catch {
+    return { error: "تعذّرت قراءة الملف المرفوع. تأكّد من أنه ملف نصي صالح." };
+  }
+
   const result = processChipFile(content, startMs, endMs);
+  const FORMAT_HINT = "الصيغة المطلوبة لكل سطر: DDMMYYYY,HHmmss ,رقم الشريحة";
+
+  // Safety catch: reject files that don't match the expected format.
+  if (result.parsedCount === 0) {
+    return {
+      error: `الملف لا يحتوي على أي قراءة بالصيغة المطلوبة. ${FORMAT_HINT}`
+    };
+  }
+  if (result.invalidLines.length > 0) {
+    const shown = result.invalidLines.slice(0, 10).join("، ");
+    const more =
+      result.invalidLines.length > 10
+        ? ` (و${result.invalidLines.length - 10} أسطر أخرى)`
+        : "";
+    return {
+      error: `يحتوي الملف على أسطر بصيغة غير صحيحة: الأسطر ${shown}${more}. ${FORMAT_HINT}`
+    };
+  }
+  if (result.kept.length === 0) {
+    return {
+      error:
+        "لا توجد قراءات تقع ضمن وقت البداية والنهاية المحدّدين. تحقّق من الأوقات أو من محتوى الملف."
+    };
+  }
 
   await prisma.$transaction(async (tx) => {
     const existing = await tx.audit.findUnique({

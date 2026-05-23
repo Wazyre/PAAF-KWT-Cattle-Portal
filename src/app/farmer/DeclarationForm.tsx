@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useFormState } from "react-dom";
+import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import dynamic from "next/dynamic";
 import {
   GATHERING_POINTS,
@@ -9,7 +9,20 @@ import {
 } from "@/lib/constants";
 import { IconAlertTriangle } from "@/components/icons";
 import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
-import { submitDeclaration, type DeclarationState } from "./actions";
+import { submitDeclaration } from "./actions";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="btn-primary w-full sm:w-auto"
+      disabled={pending}
+    >
+      {pending ? "جارٍ الإرسال…" : "إرسال الإقرار"}
+    </button>
+  );
+}
 
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
@@ -69,11 +82,7 @@ export default function DeclarationForm({
 }) {
   const [locations, setLocations] = useState<LocationRow[]>([emptyLocation()]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [isPending, startTransition] = useTransition();
-  const [state, formAction] = useFormState<DeclarationState, FormData>(
-    submitDeclaration,
-    {}
-  );
+  const [serverError, setServerError] = useState("");
 
   function validateAll(mobile: string): string[] {
     const errs: string[] = [];
@@ -128,17 +137,22 @@ export default function DeclarationForm({
     return errs;
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+  // Async <form action> so useFormStatus drives the submit button's pending
+  // state and resets it reliably after the action settles.
+  async function action(fd: FormData) {
     const mobile = String(fd.get("mobile") ?? "");
     const errs = validateAll(mobile);
     setErrors(errs);
+    setServerError("");
     if (errs.length > 0) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    startTransition(() => formAction(fd));
+    const res = await submitDeclaration({}, fd);
+    if (res?.error) {
+      setServerError(res.error);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
 
   function update(mutator: (draft: LocationRow[]) => void) {
@@ -187,10 +201,10 @@ export default function DeclarationForm({
     }))
   );
 
-  const allErrors = [...errors, ...(state.error ? [state.error] : [])];
+  const allErrors = [...errors, ...(serverError ? [serverError] : [])];
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form action={action} noValidate className="space-y-5">
       <input type="hidden" name="civilId" value={civilId} />
       <input type="hidden" name="name" value={name} />
       <input type="hidden" name="payload" value={payload} />
@@ -462,13 +476,7 @@ export default function DeclarationForm({
       ))}
 
       <div className="card">
-        <button
-          type="submit"
-          className="btn-primary w-full sm:w-auto"
-          disabled={isPending}
-        >
-          {isPending ? "جارٍ الإرسال…" : "إرسال الإقرار"}
-        </button>
+        <SubmitButton />
         <p className="mt-2 text-xs text-gray-500">
           عند الإرسال سيتم إنشاء رقم معاملة فريد يُستخدم في عملية التدقيق
           الميداني.

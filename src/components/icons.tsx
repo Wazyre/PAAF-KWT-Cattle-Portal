@@ -42,6 +42,27 @@ export function IconCheckCircle(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** Calendar — date picker trigger. */
+export function IconCalendar(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 9h17" />
+      <path d="M8 3.5v3M16 3.5v3" />
+    </svg>
+  );
+}
+
+/** Clock — time picker trigger. */
+export function IconClock(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
 /** Triangle with exclamation — warnings. */
 export function IconAlertTriangle(props: SVGProps<SVGSVGElement>) {
   return (
