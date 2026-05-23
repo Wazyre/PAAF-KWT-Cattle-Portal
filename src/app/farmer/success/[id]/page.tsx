@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { IconCheckCircle } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function SuccessPage({
   return (
     <div className="space-y-5">
       <div className="card text-center">
-        <div className="text-4xl">✅</div>
+        <IconCheckCircle className="mx-auto h-14 w-14 text-gov" />
         <h1 className="mt-2 text-xl font-bold text-gov-dark">
           تم استلام الإقرار بنجاح
         </h1>

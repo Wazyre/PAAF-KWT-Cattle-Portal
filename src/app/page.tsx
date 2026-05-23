@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { IconClipboardEdit, IconClipboardCheck } from "@/components/icons";
 
 export default function HomePage() {
   return (
     <div className="space-y-6">
       <div className="card">
         <h1 className="text-xl font-bold text-gov-dark">
-          مرحباً بكم في بوابة حصر وتدقيق الأغنام والماعز
+          مرحباً بكم في بوابة حصر وتدقيق المواشي
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           يرجى اختيار الخدمة المطلوبة:
@@ -17,9 +18,9 @@ export default function HomePage() {
           href="/farmer"
           className="card flex flex-col gap-2 transition hover:border-gov hover:shadow-md"
         >
-          <span className="text-3xl">📝</span>
+          <IconClipboardEdit className="h-9 w-9 text-gov" />
           <span className="text-lg font-bold text-gov-dark">
-            الإقرار الذاتي لمربّي الأغنام
+            الإقرار الذاتي لمربّي المواشي
           </span>
           <span className="text-sm text-gray-600">
             تعبئة نموذج الإقرار الذاتي بأعداد ومواقع الحيوانات.
@@ -30,12 +31,12 @@ export default function HomePage() {
           href="/supervisor"
           className="card flex flex-col gap-2 transition hover:border-gov hover:shadow-md"
         >
-          <span className="text-3xl">✅</span>
+          <IconClipboardCheck className="h-9 w-9 text-gov" />
           <span className="text-lg font-bold text-gov-dark">
             تدقيق الفرق الميدانية
           </span>
           <span className="text-sm text-gray-600">
-            مراجعة الإقرار ورفع قراءات الرقائق وتسجيل المخالفات.
+            مراجعة الإقرار ورفع قراءات الشرائح وتسجيل المخالفات.
           </span>
         </Link>
       </div>

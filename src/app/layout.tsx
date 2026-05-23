@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import "./globals.css";
+
+const AUTHORITY_NAME = "الهيئة العامة لشئون الزراعة والثروة السمكية";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -10,9 +13,8 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "بوابة حصر وتدقيق الأغنام والماعز",
-  description:
-    "بوابة حكومية للإقرار الذاتي وتدقيق أعداد الأغنام والماعز - دولة الكويت"
+  title: "بوابة حصر وتدقيق المواشي",
+  description: `بوابة الإقرار الذاتي وتدقيق أعداد المواشي - ${AUTHORITY_NAME} - دولة الكويت`
 };
 
 export const viewport: Viewport = {
@@ -32,21 +34,20 @@ export default function RootLayout({
         <header className="no-print border-b border-gov-dark bg-gov text-white">
           <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
             <Link href="/" className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-white/15 text-xl">
-                🐑
-              </span>
+              <BrandLogo className="h-20 w-20" />
               <div className="leading-tight">
                 <div className="text-base font-bold">
-                  بوابة حصر وتدقيق الأغنام والماعز
+                  بوابة حصر وتدقيق المواشي
                 </div>
-                <div className="text-xs text-white/80">دولة الكويت</div>
+                <div className="text-xs text-white/80">{AUTHORITY_NAME}</div>
               </div>
             </Link>
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
-        <footer className="no-print mx-auto max-w-4xl px-4 pb-8 pt-4 text-center text-xs text-gray-500">
-          جميع الحقوق محفوظة © دولة الكويت
+        <footer className="no-print mx-auto max-w-4xl px-4 pb-8 pt-4 text-center text-xs leading-relaxed text-gray-500">
+          <div>{AUTHORITY_NAME} — دولة الكويت</div>
+          <div>جميع الحقوق محفوظة © {new Date().getFullYear()}</div>
         </footer>
       </body>
     </html>

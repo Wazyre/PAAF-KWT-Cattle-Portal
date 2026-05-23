@@ -32,7 +32,7 @@ export async function submitAudit(
   const startMs = windowInputMs(startRaw);
   const endMs = windowInputMs(endRaw);
   if (startMs === null || endMs === null) {
-    return { error: "يرجى تحديد وقت بداية ونهاية قراءة الرقائق." };
+    return { error: "يرجى تحديد وقت بداية ونهاية قراءة الشرائح." };
   }
   if (endMs <= startMs) {
     return { error: "وقت النهاية يجب أن يكون بعد وقت البداية." };
@@ -49,7 +49,7 @@ export async function submitAudit(
 
   const file = formData.get("chipFile");
   if (!(file instanceof File) || file.size === 0) {
-    return { error: "يرجى رفع ملف قراءات الرقائق." };
+    return { error: "يرجى رفع ملف قراءات الشرائح." };
   }
   const content = await file.text();
   const result = processChipFile(content, startMs, endMs);

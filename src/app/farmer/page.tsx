@@ -17,7 +17,7 @@ export default async function FarmerPage({
       <div className="space-y-5">
         <div className="card">
           <h1 className="text-xl font-bold text-gov-dark">
-            الإقرار الذاتي لمربّي الأغنام
+            الإقرار الذاتي لمربّي المواشي
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             أدخل الرقم المدني لاستيراد بياناتك تلقائياً والبدء بتعبئة الإقرار.
@@ -64,7 +64,7 @@ export default async function FarmerPage({
     <div className="space-y-5">
       <div className="card">
         <h1 className="text-xl font-bold text-gov-dark">
-          الإقرار الذاتي لمربّي الأغنام
+          الإقرار الذاتي لمربّي المواشي
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           تم التحقق من الهوية. يرجى استكمال البيانات بدقة.

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { GatheringPoint, AnimalType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolveIdentity } from "@/lib/identity";
+import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
 import { GATHERING_POINTS, ANIMAL_TYPES } from "@/lib/constants";
 
 export interface DeclarationState {
@@ -31,8 +32,8 @@ export async function submitDeclaration(
   if (!identity) {
     return { error: "تعذّر التحقق من الهوية. الرقم المدني غير صالح." };
   }
-  if (!/^\d{8}$/.test(mobile.replace(/\D/g, "").slice(-8))) {
-    return { error: "يرجى إدخال رقم هاتف صحيح." };
+  if (!isValidKuwaitMobile(mobile)) {
+    return { error: KUWAIT_MOBILE_ERROR };
   }
 
   let parsed: unknown;
@@ -95,6 +96,11 @@ export async function submitDeclaration(
       if (chipped === null || males === null || females === null) {
         return {
           error: `الموقع ${i + 1} / النوع ${j + 1}: الأعداد المدخلة غير صحيحة.`
+        };
+      }
+      if (males + females !== chipped) {
+        return {
+          error: `الموقع ${i + 1} / النوع ${j + 1}: مجموع الذكور والإناث يجب أن يساوي عدد الحيوانات المُرقّمة.`
         };
       }
       animals.push({

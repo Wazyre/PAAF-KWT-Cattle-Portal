@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useState, useTransition } from "react";
+import { useFormState } from "react-dom";
 import dynamic from "next/dynamic";
 import {
   GATHERING_POINTS,
   ANIMAL_TYPES
 } from "@/lib/constants";
+import { IconAlertTriangle } from "@/components/icons";
+import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
 import { submitDeclaration, type DeclarationState } from "./actions";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
@@ -51,13 +53,11 @@ function emptyLocation(): LocationRow {
   };
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn-primary w-full sm:w-auto" disabled={pending}>
-      {pending ? "جارٍ الإرسال…" : "إرسال الإقرار"}
-    </button>
-  );
+function intStr(v: string): number | null {
+  const s = v.trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isInteger(n) && n >= 0 ? n : NaN;
 }
 
 export default function DeclarationForm({
@@ -68,10 +68,78 @@ export default function DeclarationForm({
   name: string;
 }) {
   const [locations, setLocations] = useState<LocationRow[]>([emptyLocation()]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isPending, startTransition] = useTransition();
   const [state, formAction] = useFormState<DeclarationState, FormData>(
     submitDeclaration,
     {}
   );
+
+  function validateAll(mobile: string): string[] {
+    const errs: string[] = [];
+    if (!mobile.trim()) errs.push("يرجى إدخال رقم الهاتف الشخصي.");
+    else if (!isValidKuwaitMobile(mobile)) errs.push(KUWAIT_MOBILE_ERROR);
+
+    locations.forEach((loc, i) => {
+      const where = `الموقع ${i + 1}`;
+      if (!loc.gatheringPoint) errs.push(`${where}: يرجى اختيار نقطة التجمّع.`);
+
+      loc.animals.forEach((an, j) => {
+        const at = `${where} / النوع ${j + 1}`;
+        if (!an.animalType) errs.push(`${at}: يرجى اختيار نوع الحيوان.`);
+        const chipped = intStr(an.chippedCount);
+        const males = intStr(an.males);
+        const females = intStr(an.females);
+        if (chipped === null)
+          errs.push(`${at}: يرجى إدخال عدد الحيوانات المُرقّمة.`);
+        else if (Number.isNaN(chipped))
+          errs.push(`${at}: عدد الحيوانات المُرقّمة غير صحيح.`);
+        if (males === null) errs.push(`${at}: يرجى إدخال عدد الذكور.`);
+        else if (Number.isNaN(males)) errs.push(`${at}: عدد الذكور غير صحيح.`);
+        if (females === null) errs.push(`${at}: يرجى إدخال عدد الإناث.`);
+        else if (Number.isNaN(females))
+          errs.push(`${at}: عدد الإناث غير صحيح.`);
+        if (
+          typeof chipped === "number" &&
+          !Number.isNaN(chipped) &&
+          typeof males === "number" &&
+          !Number.isNaN(males) &&
+          typeof females === "number" &&
+          !Number.isNaN(females) &&
+          males + females !== chipped
+        ) {
+          errs.push(
+            `${at}: مجموع الذكور (${males}) والإناث (${females}) يجب أن يساوي عدد الحيوانات المُرقّمة (${chipped}).`
+          );
+        }
+      });
+
+      const tenders = intStr(loc.numTenders);
+      if (tenders === null) errs.push(`${where}: يرجى إدخال عدد العمال/الرعاة.`);
+      else if (Number.isNaN(tenders))
+        errs.push(`${where}: عدد العمال/الرعاة غير صحيح.`);
+
+      if (loc.lat === null || loc.lng === null)
+        errs.push(
+          `${where}: يرجى تحديد الموقع الجغرافي بدقة (اضغط "عرض الموقع").`
+        );
+    });
+
+    return errs;
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const mobile = String(fd.get("mobile") ?? "");
+    const errs = validateAll(mobile);
+    setErrors(errs);
+    if (errs.length > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    startTransition(() => formAction(fd));
+  }
 
   function update(mutator: (draft: LocationRow[]) => void) {
     setLocations((prev) => {
@@ -119,13 +187,27 @@ export default function DeclarationForm({
     }))
   );
 
+  const allErrors = [...errors, ...(state.error ? [state.error] : [])];
+
   return (
-    <form action={formAction} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <input type="hidden" name="civilId" value={civilId} />
       <input type="hidden" name="name" value={name} />
       <input type="hidden" name="payload" value={payload} />
 
-      {state.error && <div className="danger-box">{state.error}</div>}
+      {allErrors.length > 0 && (
+        <div className="danger-box space-y-1">
+          <div className="flex items-center gap-2 font-bold">
+            <IconAlertTriangle className="h-5 w-5 shrink-0" />
+            <span>يرجى تصحيح الأخطاء التالية:</span>
+          </div>
+          <ul className="list-disc space-y-0.5 pr-6 text-sm">
+            {allErrors.map((er, i) => (
+              <li key={i}>{er}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card space-y-4">
         <h2 className="text-lg font-bold text-gov-dark">بيانات المُقرّ</h2>
@@ -141,7 +223,7 @@ export default function DeclarationForm({
         </div>
         <div>
           <label className="field-label" htmlFor="mobile">
-            رقم الهاتف الشخصي لمربّي الأغنام
+            رقم الهاتف الشخصي لمربّي المواشي
           </label>
           <input
             id="mobile"
@@ -149,7 +231,6 @@ export default function DeclarationForm({
             inputMode="numeric"
             className="field-input"
             placeholder="مثال: 9XXXXXXX"
-            required
           />
         </div>
       </div>
@@ -381,7 +462,13 @@ export default function DeclarationForm({
       ))}
 
       <div className="card">
-        <SubmitButton />
+        <button
+          type="submit"
+          className="btn-primary w-full sm:w-auto"
+          disabled={isPending}
+        >
+          {isPending ? "جارٍ الإرسال…" : "إرسال الإقرار"}
+        </button>
         <p className="mt-2 text-xs text-gray-500">
           عند الإرسال سيتم إنشاء رقم معاملة فريد يُستخدم في عملية التدقيق
           الميداني.

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { findProximityHits } from "@/lib/proximity";
 import DeclarationView from "@/components/DeclarationView";
+import { IconCheckCircle, IconAlertTriangle } from "@/components/icons";
 import AuditForm from "./AuditForm";
 
 export const dynamic = "force-dynamic";
@@ -58,15 +59,20 @@ export default async function AuditPage({
       </div>
 
       {searchParams.saved && (
-        <div className="rounded-lg border border-green-400 bg-green-50 p-4 text-green-900">
-          ✅ تم حفظ بيانات التدقيق بنجاح.
+        <div className="flex items-center gap-2 rounded-lg border border-green-400 bg-green-50 p-4 text-green-900">
+          <IconCheckCircle className="h-5 w-5 shrink-0" />
+          <span>تم حفظ بيانات التدقيق بنجاح.</span>
         </div>
       )}
 
       {hits.length > 0 && (
         <div className="danger-box space-y-2">
-          <div className="font-bold">
-            تنبيه: يوجد مربّون آخرون على بُعد 5 أمتار أو أقل من موقع هذا المربّي
+          <div className="flex items-center gap-2 font-bold">
+            <IconAlertTriangle className="h-5 w-5 shrink-0" />
+            <span>
+              تنبيه: يوجد مربّون آخرون على بُعد 5 أمتار أو أقل من موقع هذا
+              المربّي
+            </span>
           </div>
           <ul className="space-y-1 text-sm">
             {hits.map((h, i) => (
@@ -88,7 +94,7 @@ export default async function AuditPage({
       {audit && offending.length > 0 && (
         <div className="warn-box space-y-1">
           <div className="font-bold">
-            تحذير: أرقام رقائق مخالفة ({offending.length})
+            تحذير: أرقام شرائح مخالفة ({offending.length})
           </div>
           <div className="text-sm">
             وُجد رمز/نجمة بجانب الرقم، أو قراءتان بفارق 5 ثوانٍ أو أقل:
@@ -102,7 +108,7 @@ export default async function AuditPage({
       {audit && (
         <div className="card space-y-3">
           <h2 className="text-lg font-bold text-gov-dark">
-            قراءات الرقائق المحفوظة ({audit.readings.length})
+            قراءات الشرائح المحفوظة ({audit.readings.length})
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
@@ -113,7 +119,7 @@ export default async function AuditPage({
                     وقت القراءة
                   </th>
                   <th className="border border-gray-300 px-2 py-1">
-                    رقم الرقاقة
+                    رقم الشريحة
                   </th>
                   <th className="border border-gray-300 px-2 py-1">ملاحظات</th>
                 </tr>

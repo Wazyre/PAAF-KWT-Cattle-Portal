@@ -21,8 +21,8 @@ export const VIOLATION_STATUSES = [
 
 export const DIFFERENCE_REASONS = [
   { value: "NOT_CHIPPED", label: "لم يتم الترقيم" },
-  { value: "UNREADABLE", label: "تعذرت قراءة الرقائق" },
-  { value: "MULTIPLE_CHIPS", label: "الحيوان يحمل أكثر من رقاقة" },
+  { value: "UNREADABLE", label: "تعذرت قراءة الشرائح" },
+  { value: "MULTIPLE_CHIPS", label: "الحيوان يحمل أكثر من شريحة" },
   {
     value: "UNREGISTERED_TRADE",
     label: "بيع أو شراء حيوانات دون تسجيل المعاملة لدى الجمعية"

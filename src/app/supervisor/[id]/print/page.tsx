@@ -55,7 +55,7 @@ export default async function PrintPage({
 
       <div className="card text-center">
         <div className="text-lg font-bold text-gov-dark">
-          دولة الكويت — بوابة حصر وتدقيق الأغنام والماعز
+          الهيئة العامة لشئون الزراعة والثروة السمكية — دولة الكويت
         </div>
         <div className="text-sm text-gray-600">
           محضر تدقيق ميداني — معاملة رقم {decl.id}
@@ -84,13 +84,13 @@ export default async function PrintPage({
           <h2 className="text-lg font-bold text-gov-dark">نتيجة التدقيق</h2>
           <div className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <div className="text-xs text-gray-500">بداية قراءة الرقائق</div>
+              <div className="text-xs text-gray-500">بداية قراءة الشرائح</div>
               <div className="font-semibold">
                 {fmt(audit.chipReadStart)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">نهاية قراءة الرقائق</div>
+              <div className="text-xs text-gray-500">نهاية قراءة الشرائح</div>
               <div className="font-semibold">{fmt(audit.chipReadEnd)}</div>
             </div>
             <div>
@@ -116,7 +116,7 @@ export default async function PrintPage({
           {offending.length > 0 && (
             <div className="warn-box text-sm">
               <div className="font-bold">
-                أرقام رقائق مخالفة ({offending.length}):
+                أرقام شرائح مخالفة ({offending.length}):
               </div>
               <div className="font-mono break-all">
                 {offending.join(" ، ")}
@@ -133,7 +133,7 @@ export default async function PrintPage({
                     وقت القراءة
                   </th>
                   <th className="border border-gray-400 px-2 py-1">
-                    رقم الرقاقة
+                    رقم الشريحة
                   </th>
                   <th className="border border-gray-400 px-2 py-1">ملاحظات</th>
                 </tr>
