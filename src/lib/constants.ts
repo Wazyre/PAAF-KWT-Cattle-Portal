@@ -28,6 +28,7 @@ export const DIFFERENCE_REASONS = [
     label: "بيع أو شراء حيوانات دون تسجيل المعاملة لدى الجمعية"
   },
   { value: "SLAUGHTER_DEATH", label: "ذبح أو نفوق الحيوان" },
+  { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي"},
   { value: "OTHER", label: "أسباب أخرى" }
 ] as const;
 

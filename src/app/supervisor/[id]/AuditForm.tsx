@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { VIOLATION_STATUSES, DIFFERENCE_REASONS } from "@/lib/constants";
 import { IconAlertTriangle } from "@/components/icons";
-import DatePicker from "@/components/DatePicker";
-import TimePicker from "@/components/TimePicker";
 import { submitAudit } from "./actions";
 
 function SubmitButton() {
@@ -17,69 +15,61 @@ function SubmitButton() {
   );
 }
 
-/** "YYYY-MM-DD" + "HH:mm[:ss]" -> "YYYY-MM-DDTHH:mm[:ss]" (empty if either missing). */
-function combineDateTime(
-  date: FormDataEntryValue | null,
-  time: FormDataEntryValue | null
-): string {
-  const d = String(date ?? "").trim();
-  const t = String(time ?? "").trim();
-  return d && t ? `${d}T${t}` : "";
+interface AnimalTypeEntry {
+  type: string;
+  label: string;
 }
 
-/** Split a stored "YYYY-MM-DDTHH:mm:ss" back into date + time defaults. */
-function splitDateTime(v?: string): { date: string; time: string } {
-  if (!v) return { date: "", time: "" };
-  const [date, time] = v.split("T");
-  return { date: date ?? "", time: time ?? "" };
+interface AnimalTypeResult {
+  violationStatus: string;
+  differenceReasons: string[];
+  locationLink: string;
+  readingCount: number;
 }
 
 export default function AuditForm({
   declarationId,
-  defaults
+  animalTypes,
+  defaults,
+  animalTypeFilter
 }: {
   declarationId: number;
+  animalTypes: AnimalTypeEntry[];
   defaults?: {
-    chipReadStart: string;
-    chipReadEnd: string;
-    violationStatus: string;
-    differenceReason: string | null;
+    animalResults: Record<string, AnimalTypeResult>;
   };
+  animalTypeFilter?: string;
 }) {
   const [errors, setErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState("");
 
   function validate(fd: FormData): string[] {
     const errs: string[] = [];
-    const startDate = String(fd.get("startDate") ?? "").trim();
-    const startTime = String(fd.get("startTime") ?? "").trim();
-    const endDate = String(fd.get("endDate") ?? "").trim();
-    const endTime = String(fd.get("endTime") ?? "").trim();
-    const start = String(fd.get("chipReadStart") ?? "").trim();
-    const end = String(fd.get("chipReadEnd") ?? "").trim();
-    const status = String(fd.get("violationStatus") ?? "").trim();
-    const file = fd.get("chipFile");
 
-    if (!startDate || !startTime)
-      errs.push("يرجى تحديد تاريخ ووقت بداية قراءة الشرائح.");
-    if (!endDate || !endTime)
-      errs.push("يرجى تحديد تاريخ ووقت نهاية قراءة الشرائح.");
-    if (start && end && end <= start)
-      errs.push("وقت النهاية يجب أن يكون بعد وقت البداية.");
-    if (!(file instanceof File) || file.size === 0)
-      errs.push("يرجى رفع ملف قراءات الشرائح.");
-    if (!status) errs.push("يرجى تحديد حالة المخالفة.");
+    for (const { type, label } of animalTypes) {
+      const locationLink = String(
+        fd.get(`locationLink_${type}`) ?? ""
+      ).trim();
+      if (!locationLink)
+        errs.push(`يرجى إدخال الموقع الجغرافي لقراءة شرائح ${label}.`);
+
+      const file = fd.get(`chipFile_${type}`);
+      const hasFile = file instanceof File && (file as File).size > 0;
+      const existingCount =
+        defaults?.animalResults[type]?.readingCount ?? 0;
+      if (!hasFile && existingCount === 0)
+        errs.push(`يرجى رفع ملف قراءات الشرائح لـ${label}.`);
+
+      const status = String(
+        fd.get(`violationStatus_${type}`) ?? ""
+      ).trim();
+      if (!status) errs.push(`يرجى تحديد حالة المخالفة لـ${label}.`);
+    }
+
     return errs;
   }
 
-  // Passing an async function to <form action> lets useFormStatus drive the
-  // button's pending state and reset it correctly after the action finishes
-  // (including the same-route redirect on success).
   async function action(fd: FormData) {
-    // Recombine the separate date + time pickers into the single
-    // "YYYY-MM-DDTHH:mm:ss" value the server action expects.
-    fd.set("chipReadStart", combineDateTime(fd.get("startDate"), fd.get("startTime")));
-    fd.set("chipReadEnd", combineDateTime(fd.get("endDate"), fd.get("endTime")));
     const errs = validate(fd);
     setErrors(errs);
     setServerError("");
@@ -89,13 +79,19 @@ export default function AuditForm({
   }
 
   const allErrors = [...errors, ...(serverError ? [serverError] : [])];
-  const startDef = splitDateTime(defaults?.chipReadStart);
-  const endDef = splitDateTime(defaults?.chipReadEnd);
 
   return (
-    <form action={action} noValidate className="card space-y-4">
+    <form action={action} noValidate className="card space-y-5">
       <h2 className="text-lg font-bold text-gov-dark">بيانات التدقيق</h2>
       <input type="hidden" name="declarationId" value={declarationId} />
+      <input
+        type="hidden"
+        name="animalTypesToProcess"
+        value={JSON.stringify(animalTypes.map((at) => at.type))}
+      />
+      {animalTypeFilter && (
+        <input type="hidden" name="animalTypeFilter" value={animalTypeFilter} />
+      )}
 
       {allErrors.length > 0 && (
         <div className="danger-box space-y-1">
@@ -111,117 +107,135 @@ export default function AuditForm({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <fieldset className="space-y-2">
-          <legend className="field-label">بداية قراءة الشرائح</legend>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs text-gray-500" htmlFor="startDate">
-                التاريخ
-              </label>
-              <DatePicker id="startDate" name="startDate" defaultValue={startDef.date} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500" htmlFor="startTime">
-                الوقت
-              </label>
-              <TimePicker id="startTime" name="startTime" defaultValue={startDef.time} />
-            </div>
-          </div>
-        </fieldset>
-        <fieldset className="space-y-2">
-          <legend className="field-label">نهاية قراءة الشرائح</legend>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs text-gray-500" htmlFor="endDate">
-                التاريخ
-              </label>
-              <DatePicker id="endDate" name="endDate" defaultValue={endDef.date} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500" htmlFor="endTime">
-                الوقت
-              </label>
-              <TimePicker id="endTime" name="endTime" defaultValue={endDef.time} />
-            </div>
-          </div>
-        </fieldset>
-      </div>
+      <div className="space-y-4">
+        {animalTypes.map(({ type, label }) => {
+          const saved = defaults?.animalResults[type];
+          return (
+            <div
+              key={type}
+              className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
+            >
+              <h3 className="font-semibold text-gov-dark">{label}</h3>
 
-      <div>
-        <label className="field-label" htmlFor="chipFile">
-          رفع ملف قراءات الشرائح
-        </label>
-        <input
-          id="chipFile"
-          name="chipFile"
-          type="file"
-          accept=".txt,.csv,text/plain,text/csv"
-          className="field-input"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          صيغة كل سطر: DDMMYYYY,HHmmss ,رقم الشريحة — تُحفظ القراءات الواقعة
-          ضمن وقت البداية والنهاية فقط. سيظهر تحذير بأرقام الشرائح المخالفة
-          عند وجود رمز/نجمة بجانب الرقم أو عند وجود قراءتين بفارق 5 ثوانٍ أو
-          أقل.
-        </p>
-        <a
-          href="/sample-chip-readings.txt"
-          download
-          className="mt-1 inline-block text-xs font-semibold text-gov"
-        >
-          تنزيل ملف قراءات تجريبي للعرض ↓
-        </a>
-      </div>
+              <div>
+                <label
+                  className="field-label"
+                  htmlFor={`loc_${type}`}
+                >
+                  الموقع الجغرافي لقراءة الشرائح
+                </label>
+                <input
+                  id={`loc_${type}`}
+                  name={`locationLink_${type}`}
+                  className="field-input"
+                  placeholder="https://maps.app.goo.gl/…  أو  29.1234, 47.9876"
+                  defaultValue={saved?.locationLink ?? ""}
+                />
+              </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="field-label" htmlFor="violationStatus">
-            حالة المخالفة
-          </label>
-          <select
-            id="violationStatus"
-            name="violationStatus"
-            className="field-input"
-            defaultValue={defaults?.violationStatus ?? ""}
-          >
-            <option value="">— اختر —</option>
-            {VIOLATION_STATUSES.map((v) => (
-              <option key={v.value} value={v.value}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="field-label" htmlFor="differenceReason">
-            سبب الاختلاف في عدد الحيوانات
-          </label>
-          <select
-            id="differenceReason"
-            name="differenceReason"
-            className="field-input"
-            defaultValue={defaults?.differenceReason ?? ""}
-          >
-            <option value="">— لا يوجد —</option>
-            {DIFFERENCE_REASONS.map((d) => (
-              <option key={d.value} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div>
+                <label
+                  className="field-label"
+                  htmlFor={`file_${type}`}
+                >
+                  ملف قراءات الشرائح
+                </label>
+                <input
+                  id={`file_${type}`}
+                  name={`chipFile_${type}`}
+                  type="file"
+                  accept=".txt,.csv,text/plain,text/csv"
+                  className="field-input"
+                />
+                {(saved?.readingCount ?? 0) > 0 ? (
+                  <p className="mt-1 text-xs text-gray-500">
+                    محفوظ: {saved!.readingCount} قراءة. اترك فارغاً للاحتفاظ
+                    بالقراءات الحالية.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">
+                    صيغة كل سطر: DDMMYYYY,HHmmss ,رقم الشريحة
+                  </p>
+                )}
+                <a
+                  href="/sample-chip-readings.txt"
+                  download
+                  className="mt-1 inline-block text-xs font-semibold text-gov"
+                >
+                  تنزيل ملف قراءات تجريبي ↓
+                </a>
+              </div>
+
+              <div>
+                <label
+                  className="field-label"
+                  htmlFor={`vs_${type}`}
+                >
+                  حالة المخالفة
+                </label>
+                <select
+                  id={`vs_${type}`}
+                  name={`violationStatus_${type}`}
+                  className="field-input"
+                  defaultValue={saved?.violationStatus ?? ""}
+                >
+                  <option value="">— اختر —</option>
+                  {VIOLATION_STATUSES.map((v) => (
+                    <option key={v.value} value={v.value}>
+                      {v.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <span className="field-label block mb-2">
+                  أسباب الاختلاف في عدد الحيوانات (اختر كل ما ينطبق)
+                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {DIFFERENCE_REASONS.map((d) => (
+                    <label
+                      key={d.value}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        name={`differenceReason_${type}`}
+                        value={d.value}
+                        defaultChecked={
+                          saved?.differenceReasons.includes(d.value) ?? false
+                        }
+                        className="h-4 w-4 rounded border-gray-300 accent-gov"
+                      />
+                      {d.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-3">
         <SubmitButton />
+        {animalTypeFilter && (
+          <a
+            href={`/supervisor/${declarationId}/print?animalType=${encodeURIComponent(animalTypeFilter)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-secondary"
+          >
+            طباعة هذا النوع
+          </a>
+        )}
         <a
           href={`/supervisor/${declarationId}/print`}
           target="_blank"
           rel="noreferrer"
           className="btn-secondary"
         >
-          طباعة PDF
+          طباعة جميع الأنواع
         </a>
       </div>
     </form>

@@ -23,17 +23,25 @@ export async function findProximityHits(
 ): Promise<ProximityHit[]> {
   const self = await prisma.declaration.findUnique({
     where: { id: declarationId },
-    include: { locations: true }
+    include: { animalGroups: { include: { locations: true } } }
   });
   if (!self) return [];
 
+  const selfLocations = self.animalGroups.flatMap((g) => g.locations);
+
   const others = await prisma.farmLocation.findMany({
-    where: { declarationId: { not: declarationId } },
-    include: { declaration: { select: { id: true, name: true, civilId: true } } }
+    where: { animalGroup: { declarationId: { not: declarationId } } },
+    include: {
+      animalGroup: {
+        include: {
+          declaration: { select: { id: true, name: true, civilId: true } }
+        }
+      }
+    }
   });
 
   const hits: ProximityHit[] = [];
-  self.locations.forEach((mine, idx) => {
+  selfLocations.forEach((mine, idx) => {
     for (const other of others) {
       const d = distanceMeters(
         { lat: mine.latitude, lng: mine.longitude },
@@ -43,9 +51,9 @@ export async function findProximityHits(
         hits.push({
           distance: d,
           thisLocationIndex: idx,
-          otherName: other.declaration.name,
-          otherCivilId: other.declaration.civilId,
-          otherDeclarationId: other.declaration.id,
+          otherName: other.animalGroup.declaration.name,
+          otherCivilId: other.animalGroup.declaration.civilId,
+          otherDeclarationId: other.animalGroup.declaration.id,
           otherLat: other.latitude,
           otherLng: other.longitude,
           thisLat: mine.latitude,

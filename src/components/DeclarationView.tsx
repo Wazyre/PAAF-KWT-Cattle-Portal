@@ -1,26 +1,28 @@
 import { gatheringPointLabel, animalTypeLabel } from "@/lib/constants";
 
-interface AnimalGroup {
-  animalType: string;
-  chippedCount: number;
-  males: number;
-  females: number;
-}
 interface FarmLocation {
   gatheringPoint: string;
-  numTenders: number;
   latitude: number;
   longitude: number;
   locationLink: string;
-  animals: AnimalGroup[];
+  chippedCount: number;
+  males: number;
+  females: number;
+  numTenders: number;
 }
+
+interface AnimalGroup {
+  animalType: string;
+  locations: FarmLocation[];
+}
+
 export interface DeclarationData {
   id: number;
   name: string;
   civilId: string;
   mobile: string;
   createdAt: Date;
-  locations: FarmLocation[];
+  animalGroups: AnimalGroup[];
 }
 
 export default function DeclarationView({
@@ -46,68 +48,78 @@ export default function DeclarationView({
       </div>
 
       <div className="space-y-3">
-        {decl.locations.map((loc, i) => (
+        {decl.animalGroups.map((g, gi) => (
           <div
-            key={i}
-            className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+            key={gi}
+            className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3"
           >
-            <h3 className="mb-2 font-bold text-gov-dark">
-              الموقع رقم {i + 1}
+            <h3 className="font-bold text-gov-dark">
+              {animalTypeLabel(g.animalType)}
             </h3>
-            <div className="grid gap-3 text-sm sm:grid-cols-3">
-              <Field
-                label="نقطة التجمّع"
-                value={gatheringPointLabel(loc.gatheringPoint)}
-              />
-              <Field label="عدد العمال / الرعاة" value={String(loc.numTenders)} />
-              <Field
-                label="الإحداثيات"
-                value={`${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`}
-              />
-            </div>
-            <a
-              href={`https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}#map=17/${loc.latitude}/${loc.longitude}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 inline-block text-xs font-semibold text-gov no-print"
-            >
-              فتح الموقع على الخريطة ↗
-            </a>
 
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="bg-gov-light text-gov-dark">
-                    <th className="border border-gray-300 px-2 py-1">
-                      نوع الحيوان
-                    </th>
-                    <th className="border border-gray-300 px-2 py-1">
-                      المُرقّمة
-                    </th>
-                    <th className="border border-gray-300 px-2 py-1">الذكور</th>
-                    <th className="border border-gray-300 px-2 py-1">الإناث</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loc.animals.map((a, j) => (
-                    <tr key={j} className="text-center">
-                      <td className="border border-gray-300 px-2 py-1">
-                        {animalTypeLabel(a.animalType)}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1">
-                        {a.chippedCount}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1">
-                        {a.males}
-                      </td>
-                      <td className="border border-gray-300 px-2 py-1">
-                        {a.females}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {g.locations.map((loc, li) => (
+              <div key={li} className="space-y-2">
+                {g.locations.length > 1 && (
+                  <div className="text-sm font-semibold text-gray-600">
+                    الموقع {li + 1}
+                  </div>
+                )}
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <Field
+                    label="نقطة التجمّع"
+                    value={gatheringPointLabel(loc.gatheringPoint)}
+                  />
+                  <Field
+                    label="الإحداثيات"
+                    value={`${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`}
+                  />
+                </div>
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${loc.latitude}&mlon=${loc.longitude}#map=17/${loc.latitude}/${loc.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block text-xs font-semibold text-gov no-print"
+                >
+                  فتح الموقع على الخريطة ↗
+                </a>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gov-light text-gov-dark">
+                        <th className="border border-gray-300 px-2 py-1">
+                          المُرقّمة
+                        </th>
+                        <th className="border border-gray-300 px-2 py-1">
+                          الذكور
+                        </th>
+                        <th className="border border-gray-300 px-2 py-1">
+                          الإناث
+                        </th>
+                        <th className="border border-gray-300 px-2 py-1">
+                          العمال / الرعاة
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="text-center">
+                        <td className="border border-gray-300 px-2 py-1">
+                          {loc.chippedCount}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-1">
+                          {loc.males}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-1">
+                          {loc.females}
+                        </td>
+                        <td className="border border-gray-300 px-2 py-1">
+                          {loc.numTenders}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         ))}
       </div>

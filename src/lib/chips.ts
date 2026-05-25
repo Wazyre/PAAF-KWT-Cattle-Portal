@@ -49,14 +49,14 @@ const SYMBOL_RE = /[^0-9A-Za-z]/;
 
 /**
  * Parse the uploaded chip-reading file and apply the audit rules:
- *  - keep only readings within [startMs, endMs] inclusive
+ *  - if startMs/endMs are provided, keep only readings within that window
  *  - flag a reading whose chip number contains a symbol/star
  *  - flag two readings whose times are <= PROXIMITY_SECONDS apart
  */
 export function processChipFile(
   content: string,
-  startMs: number,
-  endMs: number
+  startMs?: number,
+  endMs?: number
 ): ProcessResult {
   const lines = content.split(/\r?\n/);
   const all: ParsedReading[] = [];
@@ -89,7 +89,10 @@ export function processChipFile(
     });
   });
 
-  const inWindow = all.filter((r) => r.ms >= startMs && r.ms <= endMs);
+  const inWindow =
+    startMs !== undefined && endMs !== undefined
+      ? all.filter((r) => r.ms >= startMs && r.ms <= endMs)
+      : all;
   const discardedOutOfWindow = all.length - inWindow.length;
 
   inWindow.sort((a, b) => a.ms - b.ms);

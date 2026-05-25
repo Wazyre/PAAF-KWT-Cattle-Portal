@@ -40,103 +40,147 @@ export async function submitDeclaration(
   try {
     parsed = JSON.parse(payloadRaw);
   } catch {
-    return { error: "تعذّرت قراءة بيانات المواقع." };
+    return { error: "تعذّرت قراءة بيانات الإقرار." };
   }
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    return { error: "يجب إضافة موقع واحد على الأقل." };
+    return { error: "يجب إضافة نوع حيوان واحد على الأقل." };
   }
 
-  const locations: {
-    gatheringPoint: GatheringPoint;
-    numTenders: number;
-    latitude: number;
-    longitude: number;
-    locationLink: string;
-    animals: {
-      animalType: AnimalType;
+  type GroupPayload = {
+    animalType: AnimalType;
+    locations: Array<{
+      gatheringPoint: GatheringPoint;
+      latitude: number;
+      longitude: number;
+      locationLink: string;
       chippedCount: number;
       males: number;
       females: number;
-    }[];
-  }[] = [];
+      numTenders: number;
+    }>;
+  };
+
+  const groups: GroupPayload[] = [];
 
   for (let i = 0; i < parsed.length; i++) {
-    const loc = parsed[i] as Record<string, unknown>;
-    const gp = String(loc.gatheringPoint ?? "");
-    if (!GP.has(gp)) {
-      return { error: `الموقع ${i + 1}: يجب اختيار نقطة التجمّع.` };
+    const g = parsed[i] as Record<string, unknown>;
+    const at = String(g.animalType ?? "");
+    if (!AT.has(at)) {
+      return { error: `النوع ${i + 1}: يجب اختيار نوع الحيوان.` };
     }
-    const numTenders = intOrNull(loc.numTenders);
-    if (numTenders === null) {
-      return { error: `الموقع ${i + 1}: عدد العمال/الرعاة غير صحيح.` };
+
+    const rawLocs = Array.isArray(g.locations) ? g.locations : [];
+    if (rawLocs.length === 0) {
+      return { error: `النوع ${i + 1}: يجب إضافة موقع واحد على الأقل.` };
     }
-    const lat = typeof loc.lat === "number" ? loc.lat : null;
-    const lng = typeof loc.lng === "number" ? loc.lng : null;
-    if (lat === null || lng === null) {
-      return {
-        error: `الموقع ${i + 1}: يجب تحديد الموقع الجغرافي بدقة (اضغط "عرض الموقع").`
-      };
-    }
-    const rawAnimals = Array.isArray(loc.animals) ? loc.animals : [];
-    if (rawAnimals.length === 0) {
-      return { error: `الموقع ${i + 1}: يجب إضافة نوع حيوان واحد على الأقل.` };
-    }
-    const animals = [];
-    for (let j = 0; j < rawAnimals.length; j++) {
-      const a = rawAnimals[j] as Record<string, unknown>;
-      const at = String(a.animalType ?? "");
-      const chipped = intOrNull(a.chippedCount);
-      const males = intOrNull(a.males);
-      const females = intOrNull(a.females);
-      if (!AT.has(at)) {
+
+    const locations = [];
+    for (let j = 0; j < rawLocs.length; j++) {
+      const loc = rawLocs[j] as Record<string, unknown>;
+      const gp = String(loc.gatheringPoint ?? "");
+      if (!GP.has(gp)) {
         return {
-          error: `الموقع ${i + 1} / النوع ${j + 1}: يجب اختيار نوع الحيوان.`
+          error: `النوع ${i + 1} / الموقع ${j + 1}: يجب اختيار نقطة التجمّع.`
         };
       }
+      const lat = typeof loc.lat === "number" ? loc.lat : null;
+      const lng = typeof loc.lng === "number" ? loc.lng : null;
+      if (lat === null || lng === null) {
+        return {
+          error: `النوع ${i + 1} / الموقع ${j + 1}: يجب تحديد الموقع الجغرافي بدقة (اضغط "رفع الموقع").`
+        };
+      }
+      const chipped = intOrNull(loc.chippedCount);
+      const males = intOrNull(loc.males);
+      const females = intOrNull(loc.females);
+      const numTenders = intOrNull(loc.numTenders);
       if (chipped === null || males === null || females === null) {
         return {
-          error: `الموقع ${i + 1} / النوع ${j + 1}: الأعداد المدخلة غير صحيحة.`
+          error: `النوع ${i + 1} / الموقع ${j + 1}: الأعداد المدخلة غير صحيحة.`
         };
       }
       if (males + females !== chipped) {
         return {
-          error: `الموقع ${i + 1} / النوع ${j + 1}: مجموع الذكور والإناث يجب أن يساوي عدد الحيوانات المُرقّمة.`
+          error: `النوع ${i + 1} / الموقع ${j + 1}: مجموع الذكور والإناث يجب أن يساوي عدد الحيوانات المُرقّمة.`
         };
       }
-      animals.push({
-        animalType: at as AnimalType,
+      if (numTenders === null) {
+        return {
+          error: `النوع ${i + 1} / الموقع ${j + 1}: عدد العمال/الرعاة غير صحيح.`
+        };
+      }
+      locations.push({
+        gatheringPoint: gp as GatheringPoint,
+        latitude: lat,
+        longitude: lng,
+        locationLink: String(loc.locationLink ?? ""),
         chippedCount: chipped,
         males,
-        females
+        females,
+        numTenders
       });
     }
-    locations.push({
-      gatheringPoint: gp as GatheringPoint,
-      numTenders,
-      latitude: lat,
-      longitude: lng,
-      locationLink: String(loc.locationLink ?? ""),
-      animals
-    });
+
+    groups.push({ animalType: at as AnimalType, locations });
   }
 
-  const declaration = await prisma.declaration.create({
-    data: {
-      civilId: identity.civilId,
-      name: identity.name,
-      mobile,
-      locations: {
-        create: locations.map((l) => ({
-          gatheringPoint: l.gatheringPoint,
-          numTenders: l.numTenders,
-          latitude: l.latitude,
-          longitude: l.longitude,
-          locationLink: l.locationLink,
-          animals: { create: l.animals }
-        }))
-      }
-    }
+  const existing = await prisma.declaration.findUnique({
+    where: { civilId: identity.civilId },
+    include: { animalGroups: { include: { locations: true } } }
   });
 
-  redirect(`/farmer/success/${declaration.id}`);
+  if (existing) {
+    await prisma.declarationRevision.create({
+      data: {
+        declarationId: existing.id,
+        mobile: existing.mobile,
+        locations: existing.animalGroups.map((g) => ({
+          animalType: g.animalType,
+          locations: g.locations.map((l) => ({
+            gatheringPoint: l.gatheringPoint,
+            latitude: l.latitude,
+            longitude: l.longitude,
+            locationLink: l.locationLink,
+            chippedCount: l.chippedCount,
+            males: l.males,
+            females: l.females,
+            numTenders: l.numTenders
+          }))
+        }))
+      }
+    });
+
+    await prisma.animalGroup.deleteMany({ where: { declarationId: existing.id } });
+
+    await prisma.declaration.update({
+      where: { id: existing.id },
+      data: {
+        mobile,
+        animalGroups: {
+          create: groups.map((g) => ({
+            animalType: g.animalType,
+            locations: { create: g.locations }
+          }))
+        }
+      }
+    });
+
+    redirect(`/farmer/success/${existing.id}?updated=1`);
+  } else {
+    const declaration = await prisma.declaration.create({
+      data: {
+        civilId: identity.civilId,
+        name: identity.name,
+        mobile,
+        animalGroups: {
+          create: groups.map((g) => ({
+            animalType: g.animalType,
+            locations: { create: g.locations }
+          }))
+        }
+      }
+    });
+
+    redirect(`/farmer/success/${declaration.id}`);
+  }
 }

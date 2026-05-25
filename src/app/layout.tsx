@@ -37,7 +37,7 @@ export default function RootLayout({
               <BrandLogo className="h-20 w-20" />
               <div className="leading-tight">
                 <div className="text-base font-bold">
-                  بوابة حصر وتدقيق المواشي
+                المنصة الإلكترونية لحصر ومراجعة بيانات الثروة الحيوانية في دولة الكويت
                 </div>
                 <div className="text-xs text-white/80">{AUTHORITY_NAME}</div>
               </div>

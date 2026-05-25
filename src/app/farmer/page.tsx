@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { resolveIdentity } from "@/lib/identity";
+import { prisma } from "@/lib/prisma";
 import DeclarationForm from "./DeclarationForm";
 
 export const dynamic = "force-dynamic";
@@ -60,17 +61,36 @@ export default async function FarmerPage({
     );
   }
 
+  const existing = await prisma.declaration.findUnique({
+    where: { civilId: identity.civilId },
+    include: { animalGroups: { include: { locations: true } } }
+  });
+
   return (
     <div className="space-y-5">
       <div className="card">
         <h1 className="text-xl font-bold text-gov-dark">
           الإقرار الذاتي لمربّي المواشي
         </h1>
-        <p className="mt-2 text-sm text-gray-600">
-          تم التحقق من الهوية. يرجى استكمال البيانات بدقة.
-        </p>
+        {existing ? (
+          <div className="mt-2 space-y-1">
+            <p className="text-sm text-gray-600">
+              يوجد إقرار مسبق برقم المعاملة{" "}
+              <span className="font-bold text-gov-dark">{existing.id}</span>.
+              يمكنك مراجعة بياناتك وتعديلها.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-gray-600">
+            تم التحقق من الهوية. يرجى استكمال البيانات بدقة.
+          </p>
+        )}
       </div>
-      <DeclarationForm civilId={identity.civilId} name={identity.name} />
+      <DeclarationForm
+        civilId={identity.civilId}
+        name={identity.name}
+        initialData={existing}
+      />
     </div>
   );
 }

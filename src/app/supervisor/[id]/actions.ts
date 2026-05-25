@@ -2,10 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { ViolationStatus, DifferenceReason } from "@prisma/client";
+import type { ViolationStatus, AnimalType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { processChipFile, windowInputMs } from "@/lib/chips";
-import { VIOLATION_STATUSES, DIFFERENCE_REASONS } from "@/lib/constants";
+import { processChipFile } from "@/lib/chips";
+import { parseLatLng, isShortLink, expandShortLink } from "@/lib/geo";
+import {
+  VIOLATION_STATUSES,
+  DIFFERENCE_REASONS,
+  animalTypeLabel
+} from "@/lib/constants";
 
 export interface AuditState {
   error?: string;
@@ -13,6 +18,17 @@ export interface AuditState {
 
 const VS = new Set<string>(VIOLATION_STATUSES.map((v) => v.value));
 const DR = new Set<string>(DIFFERENCE_REASONS.map((d) => d.value));
+
+async function resolveLocation(
+  link: string
+): Promise<{ lat: number; lng: number } | null> {
+  let expanded = link;
+  if (isShortLink(link)) {
+    expanded = (await expandShortLink(link)) ?? link;
+  }
+  const coords = parseLatLng(expanded);
+  return coords ?? null;
+}
 
 export async function submitAudit(
   _prev: AuditState,
@@ -22,96 +38,205 @@ export async function submitAudit(
   if (!Number.isInteger(declarationId)) {
     return { error: "رقم المعاملة غير صالح." };
   }
+
   const decl = await prisma.declaration.findUnique({
-    where: { id: declarationId }
+    where: { id: declarationId },
+    include: { animalGroups: true }
   });
   if (!decl) return { error: "المعاملة غير موجودة." };
 
-  const startRaw = String(formData.get("chipReadStart") ?? "");
-  const endRaw = String(formData.get("chipReadEnd") ?? "");
-  const startMs = windowInputMs(startRaw);
-  const endMs = windowInputMs(endRaw);
-  if (startMs === null || endMs === null) {
-    return { error: "يرجى تحديد وقت بداية ونهاية قراءة الشرائح." };
-  }
-  if (endMs <= startMs) {
-    return { error: "وقت النهاية يجب أن يكون بعد وقت البداية." };
-  }
-
-  const violationStatus = String(formData.get("violationStatus") ?? "");
-  if (!VS.has(violationStatus)) {
-    return { error: "يرجى تحديد حالة المخالفة." };
-  }
-  const differenceReasonRaw = String(formData.get("differenceReason") ?? "");
-  const differenceReason = DR.has(differenceReasonRaw)
-    ? differenceReasonRaw
-    : null;
-
-  const file = formData.get("chipFile");
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "يرجى رفع ملف قراءات الشرائح." };
-  }
-
-  let content: string;
+  const rawTypesToProcess = String(
+    formData.get("animalTypesToProcess") ?? ""
+  );
+  let parsedTypes: string[] = [];
   try {
-    content = await file.text();
+    parsedTypes = JSON.parse(rawTypesToProcess);
+    if (!Array.isArray(parsedTypes)) parsedTypes = [];
   } catch {
-    return { error: "تعذّرت قراءة الملف المرفوع. تأكّد من أنه ملف نصي صالح." };
+    parsedTypes = [];
   }
 
-  const result = processChipFile(content, startMs, endMs);
-  const FORMAT_HINT = "الصيغة المطلوبة لكل سطر: DDMMYYYY,HHmmss ,رقم الشريحة";
+  const allDeclaredTypes = new Set(decl.animalGroups.map((g) => g.animalType));
+  const animalTypes = (
+    parsedTypes.length > 0
+      ? parsedTypes.filter((t) => allDeclaredTypes.has(t as AnimalType))
+      : [...allDeclaredTypes]
+  ) as AnimalType[];
 
-  // Safety catch: reject files that don't match the expected format.
-  if (result.parsedCount === 0) {
-    return {
-      error: `الملف لا يحتوي على أي قراءة بالصيغة المطلوبة. ${FORMAT_HINT}`
-    };
-  }
-  if (result.invalidLines.length > 0) {
-    const shown = result.invalidLines.slice(0, 10).join("، ");
-    const more =
-      result.invalidLines.length > 10
-        ? ` (و${result.invalidLines.length - 10} أسطر أخرى)`
-        : "";
-    return {
-      error: `يحتوي الملف على أسطر بصيغة غير صحيحة: الأسطر ${shown}${more}. ${FORMAT_HINT}`
-    };
-  }
-  if (result.kept.length === 0) {
-    return {
-      error:
-        "لا توجد قراءات تقع ضمن وقت البداية والنهاية المحدّدين. تحقّق من الأوقات أو من محتوى الملف."
-    };
+  if (animalTypes.length === 0) {
+    return { error: "لم يتم تحديد أنواع الحيوانات المراد معالجتها." };
   }
 
-  await prisma.$transaction(async (tx) => {
-    const existing = await tx.audit.findUnique({
-      where: { declarationId }
-    });
-    if (existing) {
-      await tx.audit.delete({ where: { declarationId } });
+  // Check existing audit to determine if chip files are optional for each type.
+  const existingAudit = await prisma.audit.findUnique({
+    where: { declarationId },
+    include: {
+      animalResults: {
+        include: { _count: { select: { readings: true } } }
+      }
     }
-    await tx.audit.create({
-      data: {
-        declarationId,
-        chipReadStart: new Date(startMs),
-        chipReadEnd: new Date(endMs),
-        violationStatus: violationStatus as ViolationStatus,
-        differenceReason: (differenceReason as DifferenceReason) ?? null,
-        readings: {
-          create: result.kept.map((r) => ({
+  });
+
+  // Validate and collect per-type data before touching the DB.
+  type TypePayload = {
+    animalType: AnimalType;
+    violationStatus: ViolationStatus;
+    differenceReasons: string[];
+    locationLink: string;
+    lat: number | null;
+    lng: number | null;
+    chipContent: string | null; // null = keep existing readings
+  };
+
+  const payloads: TypePayload[] = [];
+
+  for (const type of animalTypes) {
+    const label = animalTypeLabel(type);
+
+    const locationLink = String(
+      formData.get(`locationLink_${type}`) ?? ""
+    ).trim();
+    if (!locationLink) {
+      return { error: `يرجى إدخال الموقع الجغرافي لقراءة شرائح ${label}.` };
+    }
+
+    const vs = String(formData.get(`violationStatus_${type}`) ?? "");
+    if (!VS.has(vs)) {
+      return { error: `يرجى تحديد حالة المخالفة لـ${label}.` };
+    }
+
+    const reasons = formData
+      .getAll(`differenceReason_${type}`)
+      .map((r) => String(r))
+      .filter((r) => DR.has(r));
+
+    const file = formData.get(`chipFile_${type}`);
+    const hasFile = file instanceof File && file.size > 0;
+    const existingResult = existingAudit?.animalResults.find(
+      (r) => r.animalType === type
+    );
+    const hasExistingReadings = (existingResult?._count.readings ?? 0) > 0;
+
+    if (!hasFile && !hasExistingReadings) {
+      return { error: `يرجى رفع ملف قراءات الشرائح لـ${label}.` };
+    }
+
+    let chipContent: string | null = null;
+    if (hasFile) {
+      try {
+        chipContent = await (file as File).text();
+      } catch {
+        return {
+          error: `تعذّرت قراءة ملف الشرائح لـ${label}. تأكّد من أنه ملف نصي صالح.`
+        };
+      }
+    }
+
+    const coords = await resolveLocation(locationLink);
+    if (!coords) {
+      return {
+        error: `تعذّر استخراج الإحداثيات من موقع ${label}. أدخل إحداثيات مباشرة (مثال: 29.1234, 47.9876) أو رابط خرائط صالح.`
+      };
+    }
+
+    payloads.push({
+      animalType: type,
+      violationStatus: vs as ViolationStatus,
+      differenceReasons: reasons,
+      locationLink,
+      lat: coords.lat,
+      lng: coords.lng,
+      chipContent
+    });
+  }
+
+  // Validate chip file contents before touching the DB.
+  const FORMAT_HINT = "الصيغة المطلوبة لكل سطر: DDMMYYYY,HHmmss ,رقم الشريحة";
+  const processedFiles: Map<AnimalType, ReturnType<typeof processChipFile>> =
+    new Map();
+
+  for (const p of payloads) {
+    if (p.chipContent === null) continue;
+    const result = processChipFile(p.chipContent);
+    const label = animalTypeLabel(p.animalType);
+
+    if (result.parsedCount === 0) {
+      return {
+        error: `ملف ${label} لا يحتوي على أي قراءة بالصيغة المطلوبة. ${FORMAT_HINT}`
+      };
+    }
+    if (result.invalidLines.length > 0) {
+      const shown = result.invalidLines.slice(0, 10).join("، ");
+      const more =
+        result.invalidLines.length > 10
+          ? ` (و${result.invalidLines.length - 10} أسطر أخرى)`
+          : "";
+      return {
+        error: `ملف ${label} يحتوي على أسطر بصيغة غير صحيحة: الأسطر ${shown}${more}. ${FORMAT_HINT}`
+      };
+    }
+    if (result.kept.length === 0) {
+      return {
+        error: `ملف ${label} لا يحتوي على قراءات صالحة.`
+      };
+    }
+    processedFiles.set(p.animalType, result);
+  }
+
+  // Upsert audit + per-type results inside a transaction.
+  await prisma.$transaction(async (tx) => {
+    const audit = await tx.audit.upsert({
+      where: { declarationId },
+      update: {},
+      create: { declarationId }
+    });
+
+    for (const p of payloads) {
+      const result = await tx.auditAnimalResult.upsert({
+        where: {
+          auditId_animalType: { auditId: audit.id, animalType: p.animalType }
+        },
+        update: {
+          violationStatus: p.violationStatus,
+          differenceReasons: p.differenceReasons,
+          locationLink: p.locationLink,
+          latitude: p.lat,
+          longitude: p.lng
+        },
+        create: {
+          auditId: audit.id,
+          animalType: p.animalType,
+          violationStatus: p.violationStatus,
+          differenceReasons: p.differenceReasons,
+          locationLink: p.locationLink,
+          latitude: p.lat,
+          longitude: p.lng
+        }
+      });
+
+      const chipResult = processedFiles.get(p.animalType);
+      if (chipResult) {
+        await tx.chipReading.deleteMany({
+          where: { animalResultId: result.id }
+        });
+        await tx.chipReading.createMany({
+          data: chipResult.kept.map((r) => ({
+            animalResultId: result.id,
             readAt: new Date(r.ms),
             chipNumber: r.chipNumber,
             rawChip: r.rawChip,
             flaggedSymbol: r.flaggedSymbol,
             flaggedProximity: r.flaggedProximity
           }))
-        }
+        });
       }
-    });
+    }
   });
 
   revalidatePath(`/supervisor/${declarationId}`);
-  redirect(`/supervisor/${declarationId}?saved=1`);
+  const animalTypeFilter = String(formData.get("animalTypeFilter") ?? "").trim();
+  const redirectUrl = animalTypeFilter
+    ? `/supervisor/${declarationId}?saved=1&animalType=${encodeURIComponent(animalTypeFilter)}`
+    : `/supervisor/${declarationId}?saved=1`;
+  redirect(redirectUrl);
 }

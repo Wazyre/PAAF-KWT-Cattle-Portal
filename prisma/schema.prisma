@@ -16,70 +16,95 @@ model Citizen {
 
 model Declaration {
   id        Int      @id @default(autoincrement())
-  civilId   String
+  civilId   String   @unique
   name      String
   mobile    String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  locations FarmLocation[]
-  audit     Audit?
-
-  @@index([civilId])
+  animalGroups AnimalGroup[]
+  audit        Audit?
+  revisions    DeclarationRevision[]
 }
 
-model FarmLocation {
-  id            Int            @id @default(autoincrement())
+model DeclarationRevision {
+  id            Int      @id @default(autoincrement())
   declarationId Int
-  gatheringPoint GatheringPoint
-  numTenders    Int
-  latitude      Float
-  longitude     Float
-  locationLink  String
+  revisedAt     DateTime @default(now())
+  mobile        String
+  locations     Json
 
-  declaration Declaration  @relation(fields: [declarationId], references: [id], onDelete: Cascade)
-  animals     AnimalGroup[]
+  declaration Declaration @relation(fields: [declarationId], references: [id], onDelete: Cascade)
 
   @@index([declarationId])
 }
 
 model AnimalGroup {
-  id             Int        @id @default(autoincrement())
-  farmLocationId Int
-  animalType     AnimalType
+  id            Int        @id @default(autoincrement())
+  declarationId Int
+  animalType    AnimalType
+
+  declaration Declaration  @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  locations   FarmLocation[]
+
+  @@index([declarationId])
+}
+
+model FarmLocation {
+  id             Int            @id @default(autoincrement())
+  animalGroupId  Int
+  gatheringPoint GatheringPoint
+  latitude       Float
+  longitude      Float
+  locationLink   String
   chippedCount   Int
   males          Int
   females        Int
+  numTenders     Int
 
-  farmLocation FarmLocation @relation(fields: [farmLocationId], references: [id], onDelete: Cascade)
+  animalGroup AnimalGroup @relation(fields: [animalGroupId], references: [id], onDelete: Cascade)
 
-  @@index([farmLocationId])
+  @@index([animalGroupId])
 }
 
 model Audit {
-  id              Int               @id @default(autoincrement())
-  declarationId   Int               @unique
-  chipReadStart   DateTime
-  chipReadEnd     DateTime
-  violationStatus ViolationStatus
-  differenceReason DifferenceReason?
-  createdAt       DateTime          @default(now())
+  id            Int      @id @default(autoincrement())
+  declarationId Int      @unique
+  createdAt     DateTime @default(now())
 
-  declaration Declaration   @relation(fields: [declarationId], references: [id], onDelete: Cascade)
-  readings    ChipReading[]
+  declaration   Declaration        @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+  animalResults AuditAnimalResult[]
+}
+
+model AuditAnimalResult {
+  id                Int             @id @default(autoincrement())
+  auditId           Int
+  animalType        AnimalType
+  violationStatus   ViolationStatus
+  differenceReasons Json
+  locationLink      String
+  latitude          Float?
+  longitude         Float?
+
+  audit    Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  readings ChipReading[]
+
+  @@unique([auditId, animalType])
+  @@index([auditId])
 }
 
 model ChipReading {
   id               Int      @id @default(autoincrement())
-  auditId          Int
+  animalResultId   Int
   readAt           DateTime
   chipNumber       String
   rawChip          String
   flaggedSymbol    Boolean  @default(false)
   flaggedProximity Boolean  @default(false)
 
-  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  animalResult AuditAnimalResult @relation(fields: [animalResultId], references: [id], onDelete: Cascade)
 
-  @@index([auditId])
+  @@index([animalResultId])
 }
 
 enum GatheringPoint {

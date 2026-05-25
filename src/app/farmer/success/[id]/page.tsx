@@ -6,21 +6,25 @@ import { IconCheckCircle } from "@/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function SuccessPage({
-  params
+  params,
+  searchParams
 }: {
   params: { id: string };
+  searchParams: { updated?: string };
 }) {
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
   const decl = await prisma.declaration.findUnique({ where: { id } });
   if (!decl) notFound();
 
+  const isUpdated = !!searchParams.updated;
+
   return (
     <div className="space-y-5">
       <div className="card text-center">
         <IconCheckCircle className="mx-auto h-14 w-14 text-gov" />
         <h1 className="mt-2 text-xl font-bold text-gov-dark">
-          تم استلام الإقرار بنجاح
+          {isUpdated ? "تم تحديث الإقرار بنجاح" : "تم استلام الإقرار بنجاح"}
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           يرجى الاحتفاظ برقم المعاملة التالي لاستخدامه أثناء التدقيق الميداني:
@@ -38,7 +42,7 @@ export default async function SuccessPage({
 
       <div className="flex flex-wrap gap-3">
         <Link href="/farmer" className="btn-secondary">
-          إقرار جديد
+          إقرار مربّي آخر
         </Link>
         <Link href="/" className="btn-secondary">
           الرئيسية
