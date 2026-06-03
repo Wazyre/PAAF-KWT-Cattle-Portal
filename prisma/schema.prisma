@@ -80,6 +80,7 @@ model AuditAnimalResult {
   id                Int             @id @default(autoincrement())
   auditId           Int
   animalType        AnimalType
+  siteIndex         Int             @default(0)
   violationStatus   ViolationStatus
   differenceReasons Json
   locationLink      String
@@ -89,18 +90,20 @@ model AuditAnimalResult {
   audit    Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
   readings ChipReading[]
 
-  @@unique([auditId, animalType])
+  @@unique([auditId, animalType, siteIndex])
   @@index([auditId])
 }
 
 model ChipReading {
-  id               Int      @id @default(autoincrement())
-  animalResultId   Int
-  readAt           DateTime
-  chipNumber       String
-  rawChip          String
-  flaggedSymbol    Boolean  @default(false)
-  flaggedProximity Boolean  @default(false)
+  id                   Int      @id @default(autoincrement())
+  animalResultId       Int
+  readAt               DateTime
+  chipNumber           String
+  rawChip              String
+  flaggedSymbol        Boolean  @default(false)
+  flaggedProximity     Boolean  @default(false)
+  flaggedMultipleChips Boolean  @default(false)
+  flaggedDoesntBelong  Boolean  @default(false)
 
   animalResult AuditAnimalResult @relation(fields: [animalResultId], references: [id], onDelete: Cascade)
 

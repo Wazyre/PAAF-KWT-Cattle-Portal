@@ -5,12 +5,9 @@ import DeclarationView from "@/components/DeclarationView";
 import { IconCheckCircle, IconAlertTriangle } from "@/components/icons";
 import { GATHERING_POINTS, ANIMAL_TYPES, animalTypeLabel } from "@/lib/constants";
 import AuditForm from "./AuditForm";
+import ChipFlagsTable from "./ChipFlagsTable";
 
 export const dynamic = "force-dynamic";
-
-function formatDateTime(d: Date): string {
-  return new Date(d).toISOString().replace("T", " ").slice(0, 19);
-}
 
 function gpLabel(value: string): string {
   return GATHERING_POINTS.find((g) => g.value === value)?.label ?? value;
@@ -18,6 +15,10 @@ function gpLabel(value: string): string {
 
 function atLabel(value: string): string {
   return ANIMAL_TYPES.find((a) => a.value === value)?.label ?? value;
+}
+
+function fmtDate(d: Date): string {
+  return new Date(d).toISOString().replace("T", " ").slice(0, 19);
 }
 
 interface AnimalGroupSnapshot {
@@ -41,9 +42,7 @@ export default async function AuditPage({
   searchParams: { saved?: string; animalType?: string };
 }) {
   const id = Number(params.id);
-  if (!Number.isInteger(id)) {
-    return <NotFoundCard />;
-  }
+  if (!Number.isInteger(id)) return <NotFoundCard />;
 
   const decl = await prisma.declaration.findUnique({
     where: { id },
@@ -52,6 +51,7 @@ export default async function AuditPage({
       audit: {
         include: {
           animalResults: {
+            orderBy: [{ animalType: "asc" }, { siteIndex: "asc" }],
             include: { readings: { orderBy: { readAt: "asc" } } }
           }
         }
@@ -68,18 +68,65 @@ export default async function AuditPage({
   const offending = Array.from(
     new Set(
       allReadings
-        .filter((r) => r.flaggedSymbol || r.flaggedProximity)
+        .filter(
+          (r) =>
+            r.flaggedSymbol ||
+            r.flaggedProximity ||
+            r.flaggedMultipleChips ||
+            r.flaggedDoesntBelong
+        )
         .map((r) => r.rawChip)
     )
   );
 
-  const allAnimalTypes = [...new Set(decl.animalGroups.map((g) => g.animalType))];
   const requestedType = searchParams.animalType;
-  const animalTypes = (
-    requestedType && allAnimalTypes.includes(requestedType as typeof allAnimalTypes[number])
-      ? [requestedType as typeof allAnimalTypes[number]]
-      : allAnimalTypes
-  ).map((type) => ({ type, label: animalTypeLabel(type) }));
+  const allAnimalTypes = [...new Set(decl.animalGroups.map((g) => g.animalType))];
+
+  // Build animalTypes with per-site info for AuditForm
+  const animalTypes = allAnimalTypes
+    .filter((type) => !requestedType || requestedType === type)
+    .map((type) => {
+      const group = decl.animalGroups.find((g) => g.animalType === type)!;
+      return {
+        type,
+        label: animalTypeLabel(type),
+        sites: group.locations.map((loc, siteIndex) => ({
+          siteIndex,
+          gatheringPointLabel: gpLabel(loc.gatheringPoint)
+        }))
+      };
+    });
+
+  // Build defaults indexed by [type][siteIndex]
+  const defaults = audit
+    ? {
+        animalResults: Object.fromEntries(
+          allAnimalTypes.map((type) => {
+            const group = decl.animalGroups.find((g) => g.animalType === type)!;
+            return [
+              type,
+              group.locations.map((_, siteIndex) => {
+                const result = audit.animalResults.find(
+                  (r) => r.animalType === type && r.siteIndex === siteIndex
+                );
+                if (!result) return undefined;
+                return {
+                  violationStatus: result.violationStatus,
+                  differenceReasons: result.differenceReasons as string[],
+                  locationLink: result.locationLink,
+                  readingCount: result.readings.length
+                };
+              })
+            ];
+          })
+        )
+      }
+    : undefined;
+
+  // Audit results to show (filtered by type if requested)
+  const visibleResults = audit?.animalResults.filter(
+    (r) => !requestedType || r.animalType === requestedType
+  ) ?? [];
 
   return (
     <div className="space-y-5">
@@ -104,19 +151,17 @@ export default async function AuditPage({
           <div className="flex items-center gap-2 font-bold">
             <IconAlertTriangle className="h-5 w-5 shrink-0" />
             <span>
-              تنبيه: يوجد مربّون آخرون على بُعد 5 أمتار أو أقل من موقع هذا
-              المربّي
+              تنبيه: يوجد مربّون آخرون على بُعد 5 أمتار أو أقل من موقع هذا المربّي
             </span>
           </div>
           <ul className="space-y-1 text-sm">
             {hits.map((h, i) => (
               <li key={i}>
-                الموقع رقم {h.thisLocationIndex + 1} (
-                {h.thisLat.toFixed(6)}, {h.thisLng.toFixed(6)}) يبعد{" "}
-                {h.distance.toFixed(2)} م عن المربّي{" "}
+                الموقع رقم {h.thisLocationIndex + 1} ({h.thisLat.toFixed(6)},{" "}
+                {h.thisLng.toFixed(6)}) يبعد {h.distance.toFixed(2)} م عن المربّي{" "}
                 <strong>{h.otherName}</strong> — الرقم المدني{" "}
-                <strong>{h.otherCivilId}</strong> (معاملة {h.otherDeclarationId})
-                — موقعه ({h.otherLat.toFixed(6)}, {h.otherLng.toFixed(6)})
+                <strong>{h.otherCivilId}</strong> (معاملة {h.otherDeclarationId}) — موقعه (
+                {h.otherLat.toFixed(6)}, {h.otherLng.toFixed(6)})
               </li>
             ))}
           </ul>
@@ -127,93 +172,63 @@ export default async function AuditPage({
 
       {audit && offending.length > 0 && (
         <div className="warn-box space-y-1">
-          <div className="font-bold">
-            تحذير: أرقام شرائح مخالفة ({offending.length})
-          </div>
+          <div className="font-bold">تحذير: أرقام شرائح تستوجب المراجعة ({offending.length})</div>
           <div className="text-sm">
-            وُجد رمز/نجمة بجانب الرقم، أو قراءتان بفارق 5 ثوانٍ أو أقل:
+            وُجد رمز/نجمة، أو تقارب زمني ≤ 5 ثوانٍ، أو مُصنَّف كـ"أكثر من شريحة / ليست باسم المربي":
           </div>
-          <div className="text-sm font-mono break-all">
-            {offending.join(" ، ")}
-          </div>
+          <div className="text-sm font-mono break-all">{offending.join(" ، ")}</div>
         </div>
       )}
 
-      {audit && audit.animalResults.length > 0 && (
-        <div className="card space-y-4">
-          <h2 className="text-lg font-bold text-gov-dark">
-            قراءات الشرائح المحفوظة
-          </h2>
-          {audit.animalResults.map((ar) => (
-            <div key={ar.id} className="space-y-2">
-              <h3 className="font-semibold text-gov-dark">
-                {atLabel(ar.animalType)} ({ar.readings.length} قراءة)
-              </h3>
-              {ar.latitude !== null && ar.longitude !== null && (
-                <p className="text-xs text-gray-500">
-                  موقع القراءة:{" "}
-                  <a
-                    href={`https://www.openstreetmap.org/?mlat=${ar.latitude}&mlon=${ar.longitude}#map=17/${ar.latitude}/${ar.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-semibold text-gov hover:underline"
-                  >
-                    {ar.latitude.toFixed(6)}, {ar.longitude.toFixed(6)} ↗
-                  </a>
-                </p>
-              )}
-              {ar.readings.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-gov-light text-gov-dark">
-                        <th className="border border-gray-300 px-2 py-1">#</th>
-                        <th className="border border-gray-300 px-2 py-1">
-                          وقت القراءة
-                        </th>
-                        <th className="border border-gray-300 px-2 py-1">
-                          رقم الشريحة
-                        </th>
-                        <th className="border border-gray-300 px-2 py-1">
-                          ملاحظات
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ar.readings.map((r, i) => (
-                        <tr
-                          key={r.id}
-                          className={
-                            r.flaggedSymbol || r.flaggedProximity
-                              ? "bg-amber-50 text-center"
-                              : "text-center"
-                          }
-                        >
-                          <td className="border border-gray-300 px-2 py-1">
-                            {i + 1}
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1">
-                            {formatDateTime(new Date(r.readAt))}
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 font-mono">
-                            {r.rawChip}
-                          </td>
-                          <td className="border border-gray-300 px-2 py-1 text-xs">
-                            {[
-                              r.flaggedSymbol ? "رمز/نجمة" : "",
-                              r.flaggedProximity ? "تقارب زمني ≤ 5 ث" : ""
-                            ]
-                              .filter(Boolean)
-                              .join(" + ") || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ))}
+      {visibleResults.length > 0 && (
+        <div className="card space-y-6">
+          <h2 className="text-lg font-bold text-gov-dark">قراءات الشرائح المحفوظة</h2>
+          {visibleResults.map((ar) => {
+            const label = `${atLabel(ar.animalType)} — ${
+              decl.animalGroups
+                .find((g) => g.animalType === ar.animalType)
+                ?.locations[ar.siteIndex]
+                ? gpLabel(
+                    decl.animalGroups.find((g) => g.animalType === ar.animalType)!
+                      .locations[ar.siteIndex].gatheringPoint
+                  )
+                : `الموقع ${ar.siteIndex + 1}`
+            }`;
+            return (
+              <div key={ar.id} className="space-y-2">
+                {ar.latitude !== null && ar.longitude !== null && (
+                  <p className="text-xs text-gray-500">
+                    موقع القراءة:{" "}
+                    <a
+                      href={`https://www.openstreetmap.org/?mlat=${ar.latitude}&mlon=${ar.longitude}#map=17/${ar.latitude}/${ar.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-gov hover:underline"
+                    >
+                      {ar.latitude.toFixed(6)}, {ar.longitude.toFixed(6)} ↗
+                    </a>
+                  </p>
+                )}
+                {ar.readings.length > 0 ? (
+                  <ChipFlagsTable
+                    resultId={ar.id}
+                    label={label}
+                    readings={ar.readings.map((r) => ({
+                      id: r.id,
+                      rawChip: r.rawChip,
+                      readAt: fmtDate(r.readAt),
+                      flaggedSymbol: r.flaggedSymbol,
+                      flaggedProximity: r.flaggedProximity,
+                      flaggedMultipleChips: r.flaggedMultipleChips,
+                      flaggedDoesntBelong: r.flaggedDoesntBelong
+                    }))}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-500">{label} — لا توجد قراءات محفوظة.</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -221,23 +236,7 @@ export default async function AuditPage({
         declarationId={decl.id}
         animalTypes={animalTypes}
         animalTypeFilter={requestedType}
-        defaults={
-          audit
-            ? {
-                animalResults: Object.fromEntries(
-                  audit.animalResults.map((r) => [
-                    r.animalType,
-                    {
-                      violationStatus: r.violationStatus,
-                      differenceReasons: r.differenceReasons as string[],
-                      locationLink: r.locationLink,
-                      readingCount: r.readings.length
-                    }
-                  ])
-                )
-              }
-            : undefined
-        }
+        defaults={defaults}
       />
 
       {decl.revisions.length > 0 && (
@@ -252,14 +251,10 @@ export default async function AuditPage({
             {decl.revisions.map((rev, idx) => {
               const groups = rev.locations as unknown as AnimalGroupSnapshot[];
               const totalAnimals = groups.reduce(
-                (sum, g) =>
-                  sum + g.locations.reduce((s, l) => s + l.chippedCount, 0),
+                (sum, g) => sum + g.locations.reduce((s, l) => s + l.chippedCount, 0),
                 0
               );
-              const totalLocs = groups.reduce(
-                (sum, g) => sum + g.locations.length,
-                0
-              );
+              const totalLocs = groups.reduce((sum, g) => sum + g.locations.length, 0);
               return (
                 <details
                   key={rev.id}

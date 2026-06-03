@@ -52,3 +52,6 @@ export const differenceReasonLabel = (v: string | null | undefined) =>
 // Proximity threshold for "too close" farmer locations / readings.
 export const PROXIMITY_METERS = 5;
 export const PROXIMITY_SECONDS = 5;
+
+// Minimum distance between two locations declared by the same farmer for the same animal type.
+export const MIN_SITE_DISTANCE_METERS = 100;

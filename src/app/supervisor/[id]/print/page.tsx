@@ -126,11 +126,19 @@ export default async function PrintPage({
               .map(differenceReasonLabel)
               .filter(Boolean)
               .join("، ");
+            const gp = decl.animalGroups
+              .find((g) => g.animalType === ar.animalType)
+              ?.locations[ar.siteIndex]?.gatheringPoint;
+            const siteSuffix = gp
+              ? ` — الموقع ${ar.siteIndex + 1}`
+              : ar.siteIndex > 0
+              ? ` — الموقع ${ar.siteIndex + 1}`
+              : "";
 
             return (
               <div key={ar.id} className="space-y-2">
                 <h3 className="font-semibold text-gov-dark">
-                  {animalTypeLabel(ar.animalType)}
+                  {animalTypeLabel(ar.animalType)}{siteSuffix}
                 </h3>
                 <div className="grid gap-3 text-sm sm:grid-cols-3">
                   <div>
@@ -189,7 +197,9 @@ export default async function PrintPage({
                             <td className="border border-gray-400 px-2 py-1">
                               {[
                                 r.flaggedSymbol ? "رمز/نجمة" : "",
-                                r.flaggedProximity ? "تقارب ≤ 5ث" : ""
+                                r.flaggedProximity ? "تقارب ≤ 5ث" : "",
+                                r.flaggedMultipleChips ? "أكثر من شريحة" : "",
+                                r.flaggedDoesntBelong ? "ليست باسم المربي" : ""
                               ]
                                 .filter(Boolean)
                                 .join(" + ") || "—"}

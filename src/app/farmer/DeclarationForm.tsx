@@ -3,13 +3,11 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import dynamic from "next/dynamic";
-import {
-  GATHERING_POINTS,
-  ANIMAL_TYPES
-} from "@/lib/constants";
+import { GATHERING_POINTS, ANIMAL_TYPES, MIN_SITE_DISTANCE_METERS } from "@/lib/constants";
 import { IconAlertTriangle } from "@/components/icons";
 import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
 import { submitDeclaration } from "./actions";
+import { distanceMeters } from "@/lib/geo";
 
 interface InitialLocation {
   gatheringPoint: string;
@@ -35,18 +33,10 @@ interface InitialData {
 function SubmitButton({ isEditing }: { isEditing: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      className="btn-primary w-full sm:w-auto"
-      disabled={pending}
-    >
+    <button type="submit" className="btn-primary w-full sm:w-auto" disabled={pending}>
       {pending
-        ? isEditing
-          ? "جارٍ التحديث…"
-          : "جارٍ الإرسال…"
-        : isEditing
-        ? "تحديث الإقرار"
-        : "إرسال الإقرار"}
+        ? isEditing ? "جارٍ التحديث…" : "جارٍ الإرسال…"
+        : isEditing ? "تحديث الإقرار" : "إرسال الإقرار"}
     </button>
   );
 }
@@ -61,6 +51,7 @@ const MapView = dynamic(() => import("@/components/MapView"), {
 });
 
 interface LocationRow {
+  id: string;
   gatheringPoint: string;
   locationLink: string;
   lat: number | null;
@@ -68,17 +59,21 @@ interface LocationRow {
   geoStatus: "" | "loading" | "ok" | "error";
   chippedCount: string;
   males: string;
-  females: string;
   numTenders: string;
 }
 
-interface AnimalTypeGroup {
+interface AnimalTypeSection {
   animalType: string;
   locations: LocationRow[];
 }
 
+function genId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 function emptyLocation(): LocationRow {
   return {
+    id: genId(),
     gatheringPoint: "",
     locationLink: "",
     lat: null,
@@ -86,30 +81,29 @@ function emptyLocation(): LocationRow {
     geoStatus: "",
     chippedCount: "",
     males: "",
-    females: "",
     numTenders: ""
   };
 }
 
-function emptyGroup(): AnimalTypeGroup {
-  return { animalType: "", locations: [emptyLocation()] };
-}
-
-function fromInitialData(data: InitialData): AnimalTypeGroup[] {
-  return data.animalGroups.map((g) => ({
-    animalType: g.animalType,
-    locations: g.locations.map((l) => ({
-      gatheringPoint: l.gatheringPoint,
-      locationLink: l.locationLink,
-      lat: l.latitude,
-      lng: l.longitude,
-      geoStatus: "ok" as const,
-      chippedCount: String(l.chippedCount),
-      males: String(l.males),
-      females: String(l.females),
-      numTenders: String(l.numTenders)
-    }))
-  }));
+function initSections(initialData?: InitialData | null): AnimalTypeSection[] {
+  return ANIMAL_TYPES.map((at) => {
+    const group = initialData?.animalGroups.find((g) => g.animalType === at.value);
+    if (!group) return { animalType: at.value, locations: [] };
+    return {
+      animalType: at.value,
+      locations: group.locations.map((l) => ({
+        id: genId(),
+        gatheringPoint: l.gatheringPoint,
+        locationLink: l.locationLink,
+        lat: l.latitude,
+        lng: l.longitude,
+        geoStatus: "ok" as const,
+        chippedCount: String(l.chippedCount),
+        males: String(l.males),
+        numTenders: String(l.numTenders)
+      }))
+    };
+  });
 }
 
 function intStr(v: string): number | null {
@@ -129,75 +123,79 @@ export default function DeclarationForm({
   initialData?: InitialData | null;
 }) {
   const isEditing = !!initialData;
-
-  const [animalGroups, setAnimalGroups] = useState<AnimalTypeGroup[]>(
-    initialData && initialData.animalGroups.length > 0
-      ? fromInitialData(initialData)
-      : [emptyGroup()]
-  );
-  const [errors, setErrors] = useState<string[]>([]);
+  const [sections, setSections] = useState<AnimalTypeSection[]>(() => initSections(initialData));
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formErrors, setFormErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState("");
 
-  function validateAll(mobile: string): string[] {
-    const errs: string[] = [];
-    if (!mobile.trim()) errs.push("يرجى إدخال رقم الهاتف الشخصي.");
-    else if (!isValidKuwaitMobile(mobile)) errs.push(KUWAIT_MOBILE_ERROR);
+  function validateAll(mobile: string): { fieldErrors: Record<string, string>; formErrors: string[] } {
+    const fieldErrs: Record<string, string> = {};
+    const formErrs: string[] = [];
 
-    animalGroups.forEach((g, gi) => {
-      const typeLabel = `النوع ${gi + 1}`;
-      if (!g.animalType) errs.push(`${typeLabel}: يرجى اختيار نوع الحيوان.`);
+    if (!mobile.trim()) fieldErrs.mobile = "يرجى إدخال رقم الهاتف الشخصي.";
+    else if (!isValidKuwaitMobile(mobile)) fieldErrs.mobile = KUWAIT_MOBILE_ERROR;
 
-      g.locations.forEach((loc, li) => {
-        const where = `${typeLabel} / الموقع ${li + 1}`;
+    const activeSections = sections.filter((s) => s.locations.length > 0);
+    if (activeSections.length === 0) formErrs.push("يرجى إضافة موقع واحد على الأقل.");
+
+    sections.forEach((s, ai) => {
+      s.locations.forEach((loc, li) => {
         if (!loc.gatheringPoint)
-          errs.push(`${where}: يرجى اختيار نقطة التجمّع.`);
+          fieldErrs[`gathering_${ai}_${li}`] = "يرجى اختيار نقطة التجمّع.";
+
         const chipped = intStr(loc.chippedCount);
-        const males = intStr(loc.males);
-        const females = intStr(loc.females);
-        const tenders = intStr(loc.numTenders);
         if (chipped === null)
-          errs.push(`${where}: يرجى إدخال عدد الحيوانات المُرقّمة.`);
+          fieldErrs[`chipped_${ai}_${li}`] = "يرجى إدخال عدد الحيوانات المُرقّمة.";
         else if (Number.isNaN(chipped))
-          errs.push(`${where}: عدد الحيوانات المُرقّمة غير صحيح.`);
-        if (males === null) errs.push(`${where}: يرجى إدخال عدد الذكور.`);
+          fieldErrs[`chipped_${ai}_${li}`] = "عدد الحيوانات المُرقّمة غير صحيح.";
+
+        const males = intStr(loc.males);
+        if (males === null)
+          fieldErrs[`males_${ai}_${li}`] = "يرجى إدخال عدد الذكور.";
         else if (Number.isNaN(males))
-          errs.push(`${where}: عدد الذكور غير صحيح.`);
-        if (females === null) errs.push(`${where}: يرجى إدخال عدد الإناث.`);
-        else if (Number.isNaN(females))
-          errs.push(`${where}: عدد الإناث غير صحيح.`);
+          fieldErrs[`males_${ai}_${li}`] = "عدد الذكور غير صحيح.";
+        else if (typeof chipped === "number" && !Number.isNaN(chipped) && males > chipped)
+          fieldErrs[`males_${ai}_${li}`] = "عدد الذكور لا يمكن أن يتجاوز عدد الحيوانات المُرقّمة.";
+
+        const tenders = intStr(loc.numTenders);
         if (tenders === null)
-          errs.push(`${where}: يرجى إدخال عدد العمال/الرعاة.`);
+          fieldErrs[`tenders_${ai}_${li}`] = "يرجى إدخال عدد العمال / الرعاة.";
         else if (Number.isNaN(tenders))
-          errs.push(`${where}: عدد العمال/الرعاة غير صحيح.`);
-        if (
-          typeof chipped === "number" &&
-          !Number.isNaN(chipped) &&
-          typeof males === "number" &&
-          !Number.isNaN(males) &&
-          typeof females === "number" &&
-          !Number.isNaN(females) &&
-          males + females !== chipped
-        ) {
-          errs.push(
-            `${where}: مجموع الذكور والإناث يجب أن يساوي عدد الحيوانات المُرقّمة.`
-          );
-        }
+          fieldErrs[`tenders_${ai}_${li}`] = "عدد العمال/الرعاة غير صحيح.";
+
         if (loc.lat === null || loc.lng === null)
-          errs.push(
-            `${where}: يرجى تحديد الموقع الجغرافي بدقة (اضغط "رفع الموقع").`
-          );
+          fieldErrs[`geo_${ai}_${li}`] = "يرجى تحديد الموقع الجغرافي بدقة (اضغط \"رفع الموقع\").";
       });
+
+      // Same-type proximity check
+      for (let i = 0; i < s.locations.length; i++) {
+        for (let j = i + 1; j < s.locations.length; j++) {
+          const a = s.locations[i];
+          const b = s.locations[j];
+          if (a.lat !== null && a.lng !== null && b.lat !== null && b.lng !== null) {
+            const d = distanceMeters({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng });
+            if (d < MIN_SITE_DISTANCE_METERS) {
+              const msg = `الموقع ${i + 1} والموقع ${j + 1} قريبان جداً (${d.toFixed(0)} م). يجب أن تبعد المواقع عن بعضها ${MIN_SITE_DISTANCE_METERS} متراً على الأقل.`;
+              fieldErrs[`geo_${ai}_${i}`] = msg;
+              fieldErrs[`geo_${ai}_${j}`] = msg;
+            }
+          }
+        }
+      }
     });
 
-    return errs;
+    return { fieldErrors: fieldErrs, formErrors: formErrs };
   }
 
   async function action(fd: FormData) {
     const mobile = String(fd.get("mobile") ?? "");
-    const errs = validateAll(mobile);
-    setErrors(errs);
+    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile);
+    setFieldErrors(fieldErrs);
+    setFormErrors(formErrs);
     setServerError("");
-    if (errs.length > 0) {
+    if (Object.keys(fieldErrs).length > 0 || formErrs.length > 0) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -208,57 +206,81 @@ export default function DeclarationForm({
     }
   }
 
-  function update(mutator: (draft: AnimalTypeGroup[]) => void) {
-    setAnimalGroups((prev) => {
+  function update(mutator: (draft: AnimalTypeSection[]) => void) {
+    setSections((prev) => {
       const next = structuredClone(prev);
       mutator(next);
       return next;
     });
   }
 
-  async function resolveLocation(gi: number, li: number) {
-    const link = animalGroups[gi].locations[li].locationLink.trim();
+  function addLocation(ai: number) {
+    const loc = emptyLocation();
+    update((d) => { d[ai].locations.push(loc); });
+    setNewIds((prev) => new Set([...prev, loc.id]));
+  }
+
+  function removeLocation(ai: number, li: number) {
+    const id = sections[ai].locations[li].id;
+    setRemovingIds((prev) => new Set([...prev, id]));
+    setTimeout(() => {
+      setSections((prev) => {
+        const next = structuredClone(prev);
+        next[ai].locations = next[ai].locations.filter((_, idx) => idx !== li);
+        return next;
+      });
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 180);
+  }
+
+  async function resolveLocation(ai: number, li: number) {
+    const link = sections[ai].locations[li].locationLink.trim();
     if (!link) return;
-    update((d) => {
-      d[gi].locations[li].geoStatus = "loading";
-    });
+    update((d) => { d[ai].locations[li].geoStatus = "loading"; });
     try {
-      const res = await fetch(
-        `/api/resolve-location?u=${encodeURIComponent(link)}`
-      );
+      const res = await fetch(`/api/resolve-location?u=${encodeURIComponent(link)}`);
       if (!res.ok) throw new Error("unresolved");
       const data = (await res.json()) as { lat: number; lng: number };
       update((d) => {
-        d[gi].locations[li].lat = data.lat;
-        d[gi].locations[li].lng = data.lng;
-        d[gi].locations[li].geoStatus = "ok";
+        d[ai].locations[li].lat = data.lat;
+        d[ai].locations[li].lng = data.lng;
+        d[ai].locations[li].geoStatus = "ok";
       });
     } catch {
       update((d) => {
-        d[gi].locations[li].lat = null;
-        d[gi].locations[li].lng = null;
-        d[gi].locations[li].geoStatus = "error";
+        d[ai].locations[li].lat = null;
+        d[ai].locations[li].lng = null;
+        d[ai].locations[li].geoStatus = "error";
       });
     }
   }
 
   const payload = JSON.stringify(
-    animalGroups.map((g) => ({
-      animalType: g.animalType,
-      locations: g.locations.map((l) => ({
-        gatheringPoint: l.gatheringPoint,
-        locationLink: l.locationLink,
-        lat: l.lat,
-        lng: l.lng,
-        chippedCount: l.chippedCount,
-        males: l.males,
-        females: l.females,
-        numTenders: l.numTenders
+    sections
+      .filter((s) => s.locations.length > 0)
+      .map((s) => ({
+        animalType: s.animalType,
+        locations: s.locations.map((l) => {
+          const chipped = parseInt(l.chippedCount) || 0;
+          const males = Math.min(parseInt(l.males) || 0, chipped);
+          const females = Math.max(0, chipped - males);
+          return {
+            gatheringPoint: l.gatheringPoint,
+            locationLink: l.locationLink,
+            lat: l.lat,
+            lng: l.lng,
+            chippedCount: l.chippedCount,
+            males: String(males),
+            females: String(females),
+            numTenders: l.numTenders
+          };
+        })
       }))
-    }))
   );
-
-  const allErrors = [...errors, ...(serverError ? [serverError] : [])];
 
   return (
     <form action={action} noValidate className="space-y-5">
@@ -266,14 +288,14 @@ export default function DeclarationForm({
       <input type="hidden" name="name" value={name} />
       <input type="hidden" name="payload" value={payload} />
 
-      {allErrors.length > 0 && (
+      {(formErrors.length > 0 || serverError) && (
         <div className="danger-box space-y-1">
           <div className="flex items-center gap-2 font-bold">
             <IconAlertTriangle className="h-5 w-5 shrink-0" />
             <span>يرجى تصحيح الأخطاء التالية:</span>
           </div>
           <ul className="list-disc space-y-0.5 pr-6 text-sm">
-            {allErrors.map((er, i) => (
+            {[...formErrors, ...(serverError ? [serverError] : [])].map((er, i) => (
               <li key={i}>{er}</li>
             ))}
           </ul>
@@ -304,99 +326,40 @@ export default function DeclarationForm({
             placeholder="مثال: 9XXXXXXX"
             defaultValue={initialData?.mobile ?? ""}
           />
+          {fieldErrors.mobile && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.mobile}</p>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gov-dark">
-          أنواع المواشي ({animalGroups.length})
-        </h2>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => setAnimalGroups((p) => [...p, emptyGroup()])}
-        >
-          + إضافة نوع
-        </button>
-      </div>
+      {ANIMAL_TYPES.map((at, ai) => {
+        const section = sections[ai];
+        return (
+          <div key={at.value} className="card space-y-4">
+            <h2 className="text-lg font-bold text-gov-dark">{at.label}</h2>
 
-      {animalGroups.map((g, gi) => (
-        <div key={gi} className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gov-dark">النوع {gi + 1}</h3>
-            {animalGroups.length > 1 && (
-              <button
-                type="button"
-                className="text-sm font-semibold text-red-600"
-                onClick={() =>
-                  setAnimalGroups((p) => p.filter((_, idx) => idx !== gi))
-                }
-              >
-                حذف النوع
-              </button>
-            )}
-          </div>
-
-          <div>
-            <label className="field-label">نوع الحيوان</label>
-            <select
-              className="field-input"
-              value={g.animalType}
-              onChange={(e) =>
-                update((d) => {
-                  d[gi].animalType = e.target.value;
-                })
-              }
-            >
-              <option value="">— اختر —</option>
-              {ANIMAL_TYPES.map((a) => (
-                <option key={a.value} value={a.value}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="field-label mb-0">مواقع الحظائر</label>
-              <button
-                type="button"
-                className="text-sm font-semibold text-gov"
-                onClick={() =>
-                  update((d) => {
-                    d[gi].locations.push(emptyLocation());
-                  })
-                }
-              >
-                + إضافة موقع
-              </button>
-            </div>
-
-            {g.locations.map((loc, li) => (
+            {section.locations.map((loc, li) => (
               <div
-                key={li}
-                className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3"
+                key={loc.id}
+                className={`rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3 ${
+                  removingIds.has(loc.id)
+                    ? "animate-fade-out"
+                    : newIds.has(loc.id)
+                    ? "animate-slide-in"
+                    : ""
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-gray-700">
                     الموقع {li + 1}
                   </span>
-                  {g.locations.length > 1 && (
-                    <button
-                      type="button"
-                      className="text-xs font-semibold text-red-600"
-                      onClick={() =>
-                        update((d) => {
-                          d[gi].locations = d[gi].locations.filter(
-                            (_, idx) => idx !== li
-                          );
-                        })
-                      }
-                    >
-                      حذف
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-red-600"
+                    onClick={() => removeLocation(ai, li)}
+                  >
+                    حذف
+                  </button>
                 </div>
 
                 <div>
@@ -405,18 +368,17 @@ export default function DeclarationForm({
                     className="field-input"
                     value={loc.gatheringPoint}
                     onChange={(e) =>
-                      update((d) => {
-                        d[gi].locations[li].gatheringPoint = e.target.value;
-                      })
+                      update((d) => { d[ai].locations[li].gatheringPoint = e.target.value; })
                     }
                   >
                     <option value="">— اختر —</option>
                     {GATHERING_POINTS.map((gp) => (
-                      <option key={gp.value} value={gp.value}>
-                        {gp.label}
-                      </option>
+                      <option key={gp.value} value={gp.value}>{gp.label}</option>
                     ))}
                   </select>
+                  {fieldErrors[`gathering_${ai}_${li}`] && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors[`gathering_${ai}_${li}`]}</p>
+                  )}
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -430,41 +392,37 @@ export default function DeclarationForm({
                       className="field-input"
                       value={loc.chippedCount}
                       onChange={(e) =>
-                        update((d) => {
-                          d[gi].locations[li].chippedCount = e.target.value;
-                        })
+                        update((d) => { d[ai].locations[li].chippedCount = e.target.value; })
                       }
                     />
+                    {fieldErrors[`chipped_${ai}_${li}`] && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors[`chipped_${ai}_${li}`]}</p>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="field-label">عدد الذكور</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="field-input"
-                        value={loc.males}
-                        onChange={(e) =>
-                          update((d) => {
-                            d[gi].locations[li].males = e.target.value;
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label className="field-label">عدد الإناث</label>
-                      <input
-                        type="number"
-                        min={0}
-                        className="field-input"
-                        value={loc.females}
-                        onChange={(e) =>
-                          update((d) => {
-                            d[gi].locations[li].females = e.target.value;
-                          })
-                        }
-                      />
-                    </div>
+                  <div>
+                    <label className="field-label">عدد الذكور</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="field-input"
+                      value={loc.males}
+                      onChange={(e) =>
+                        update((d) => { d[ai].locations[li].males = e.target.value; })
+                      }
+                    />
+                    {loc.males !== "" && loc.chippedCount !== "" && (() => {
+                      const chipped = parseInt(loc.chippedCount) || 0;
+                      const males = parseInt(loc.males) || 0;
+                      const females = Math.max(0, chipped - males);
+                      return (
+                        <p className="mt-1 text-xs text-gray-500">
+                          عدد الإناث: {females}
+                        </p>
+                      );
+                    })()}
+                    {fieldErrors[`males_${ai}_${li}`] && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors[`males_${ai}_${li}`]}</p>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <label className="field-label">عدد العمال / الرعاة</label>
@@ -474,11 +432,12 @@ export default function DeclarationForm({
                       className="field-input"
                       value={loc.numTenders}
                       onChange={(e) =>
-                        update((d) => {
-                          d[gi].locations[li].numTenders = e.target.value;
-                        })
+                        update((d) => { d[ai].locations[li].numTenders = e.target.value; })
                       }
                     />
+                    {fieldErrors[`tenders_${ai}_${li}`] && (
+                      <p className="mt-1 text-sm text-red-600">{fieldErrors[`tenders_${ai}_${li}`]}</p>
+                    )}
                   </div>
                 </div>
 
@@ -492,15 +451,13 @@ export default function DeclarationForm({
                       placeholder="https://maps.app.goo.gl/…  أو  29.1234, 47.9876"
                       value={loc.locationLink}
                       onChange={(e) =>
-                        update((d) => {
-                          d[gi].locations[li].locationLink = e.target.value;
-                        })
+                        update((d) => { d[ai].locations[li].locationLink = e.target.value; })
                       }
                     />
                     <button
                       type="button"
                       className="btn-secondary shrink-0"
-                      onClick={() => resolveLocation(gi, li)}
+                      onClick={() => resolveLocation(ai, li)}
                     >
                       رفع الموقع
                     </button>
@@ -509,9 +466,7 @@ export default function DeclarationForm({
                     يجب أن يكون الموقع المُدخَل ضمن نطاق 5 أمتار من الموقع الفعلي للحظيرة.
                   </p>
                   {loc.geoStatus === "loading" && (
-                    <p className="mt-1 text-sm text-gray-500">
-                      جارٍ تحديد الموقع…
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">جارٍ تحديد الموقع…</p>
                   )}
                   {loc.geoStatus === "error" && (
                     <p className="mt-1 text-sm text-red-600">
@@ -519,22 +474,31 @@ export default function DeclarationForm({
                       أدخل الإحداثيات بصيغة 29.1234, 47.9876
                     </p>
                   )}
-                  {loc.geoStatus === "ok" &&
-                    loc.lat !== null &&
-                    loc.lng !== null && (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-sm text-gray-700">
-                          الإحداثيات: {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
-                        </p>
-                        <MapView lat={loc.lat} lng={loc.lng} />
-                      </div>
-                    )}
+                  {fieldErrors[`geo_${ai}_${li}`] && loc.geoStatus !== "error" && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors[`geo_${ai}_${li}`]}</p>
+                  )}
+                  {loc.geoStatus === "ok" && loc.lat !== null && loc.lng !== null && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-gray-700">
+                        الإحداثيات: {loc.lat.toFixed(6)}, {loc.lng.toFixed(6)}
+                      </p>
+                      <MapView lat={loc.lat} lng={loc.lng} />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+
+            <button
+              type="button"
+              onClick={() => addLocation(ai)}
+              className="w-full rounded-lg border-2 border-dashed border-gov/40 py-3 text-sm font-semibold text-gov transition hover:border-gov hover:bg-gov-light"
+            >
+              + أضف موقع
+            </button>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <div className="card">
         <SubmitButton isEditing={isEditing} />

@@ -45,8 +45,8 @@ export function parseLatLng(input: string): LatLng | null {
   }
 
   const patterns: RegExp[] = [
-    /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
     /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,
+    /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
     /\/(?:search|place|dir)\/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
     /[?&](?:q|query|ll|destination|center|daddr|saddr)=(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
     /(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/
