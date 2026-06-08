@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { IconClipboardEdit, IconClipboardCheck } from "@/components/icons";
+import { IconClipboardEdit, IconClipboardCheck, IconAlertTriangle } from "@/components/icons";
 
 export default function HomePage() {
   return (
@@ -13,7 +13,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           href="/farmer"
           className="card flex flex-col gap-2 transition hover:border-gov hover:shadow-md"
@@ -37,6 +37,19 @@ export default function HomePage() {
           </span>
           <span className="text-sm text-gray-600">
             مراجعة الإقرار ورفع قراءات الشرائح وتسجيل المخالفات.
+          </span>
+        </Link>
+
+        <Link
+          href="/head-supervisor"
+          className="card flex flex-col gap-2 transition hover:border-gov hover:shadow-md"
+        >
+          <IconAlertTriangle className="h-9 w-9 text-gov" />
+          <span className="text-lg font-bold text-gov-dark">
+            بوابة رئيس المفتشين
+          </span>
+          <span className="text-sm text-gray-600">
+            إدارة المفتشين الميدانيين وتوزيع مجموعات التدقيق عليهم.
           </span>
         </Link>
       </div>

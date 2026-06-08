@@ -21,15 +21,8 @@ export const VIOLATION_STATUSES = [
 
 export const DIFFERENCE_REASONS = [
   { value: "NOT_CHIPPED", label: "لم يتم الترقيم" },
-  { value: "UNREADABLE", label: "تعذرت قراءة الشرائح" },
   { value: "MULTIPLE_CHIPS", label: "الحيوان يحمل أكثر من شريحة" },
-  {
-    value: "UNREGISTERED_TRADE",
-    label: "بيع أو شراء حيوانات دون تسجيل المعاملة لدى الجمعية"
-  },
-  { value: "SLAUGHTER_DEATH", label: "ذبح أو نفوق الحيوان" },
-  { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي"},
-  { value: "OTHER", label: "أسباب أخرى" }
+  { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي" }
 ] as const;
 
 function labelOf(

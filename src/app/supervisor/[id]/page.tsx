@@ -62,6 +62,18 @@ export default async function AuditPage({
   if (!decl) return <NotFoundCard />;
 
   const hits = await findProximityHits(id);
+
+  const maleAlerts = decl.animalGroups
+    .map((group) => {
+      const totalChipped = group.locations.reduce((sum, l) => sum + l.chippedCount, 0);
+      const totalMales = group.locations.reduce((sum, l) => sum + l.males, 0);
+      if (totalChipped > 0 && totalMales > totalChipped * 0.05) {
+        return { animalType: group.animalType as string, totalMales, totalChipped };
+      }
+      return null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
   const audit = decl.audit;
 
   const allReadings = audit?.animalResults.flatMap((r) => r.readings) ?? [];
@@ -97,6 +109,17 @@ export default async function AuditPage({
       };
     });
 
+  function computeMultipleChipsCount(readings: { readAt: Date; flaggedSymbol: boolean }[]): number {
+    const sorted = [...readings].sort((a, b) => a.readAt.getTime() - b.readAt.getTime());
+    let count = 0;
+    let inStarGroup = false;
+    for (const r of sorted) {
+      if (!r.flaggedSymbol) { inStarGroup = false; }
+      else if (!inStarGroup) { count++; inStarGroup = true; }
+    }
+    return count;
+  }
+
   // Build defaults indexed by [type][siteIndex]
   const defaults = audit
     ? {
@@ -110,11 +133,16 @@ export default async function AuditPage({
                   (r) => r.animalType === type && r.siteIndex === siteIndex
                 );
                 if (!result) return undefined;
+                const nonStarCount = result.readings.filter((r) => !r.flaggedSymbol).length;
+                const multipleChipsCount = computeMultipleChipsCount(result.readings);
                 return {
                   violationStatus: result.violationStatus,
                   differenceReasons: result.differenceReasons as string[],
                   locationLink: result.locationLink,
-                  readingCount: result.readings.length
+                  readingCount: result.readings.length,
+                  manualCount: result.manualCount ?? null,
+                  nonStarCount,
+                  multipleChipsCount
                 };
               })
             ];
@@ -143,6 +171,22 @@ export default async function AuditPage({
         <div className="flex items-center gap-2 rounded-lg border border-green-400 bg-green-50 p-4 text-green-900">
           <IconCheckCircle className="h-5 w-5 shrink-0" />
           <span>تم حفظ بيانات التدقيق بنجاح.</span>
+        </div>
+      )}
+
+      {maleAlerts.length > 0 && (
+        <div className="danger-box space-y-2">
+          <div className="flex items-center gap-2 font-bold">
+            <IconAlertTriangle className="h-5 w-5 shrink-0" />
+            <span>تنبيه: عدد الذكور يتجاوز 5% من إجمالي الحيوانات المُرقّمة</span>
+          </div>
+          <ul className="space-y-1 text-sm">
+            {maleAlerts.map((a, i) => (
+              <li key={i}>
+                {atLabel(a.animalType)}: {a.totalMales} ذكراً من أصل {a.totalChipped} حيوان مُرقّم ({((a.totalMales / a.totalChipped) * 100).toFixed(1)}%)
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

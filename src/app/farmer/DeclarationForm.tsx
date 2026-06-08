@@ -130,26 +130,29 @@ export default function DeclarationForm({
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState("");
 
-  function validateAll(mobile: string): { fieldErrors: Record<string, string>; formErrors: string[] } {
+  function validateAll(mobile: string, pledged: boolean): { fieldErrors: Record<string, string>; formErrors: string[] } {
     const fieldErrs: Record<string, string> = {};
     const formErrs: string[] = [];
 
     if (!mobile.trim()) fieldErrs.mobile = "يرجى إدخال رقم الهاتف الشخصي.";
     else if (!isValidKuwaitMobile(mobile)) fieldErrs.mobile = KUWAIT_MOBILE_ERROR;
 
+    if (!pledged) fieldErrs.pledge = "يجب الموافقة على الإقرار قبل الإرسال.";
+
     const activeSections = sections.filter((s) => s.locations.length > 0);
     if (activeSections.length === 0) formErrs.push("يرجى إضافة موقع واحد على الأقل.");
 
     sections.forEach((s, ai) => {
+      const atLabel = ANIMAL_TYPES[ai]?.label ?? "الحيوانات";
       s.locations.forEach((loc, li) => {
         if (!loc.gatheringPoint)
           fieldErrs[`gathering_${ai}_${li}`] = "يرجى اختيار نقطة التجمّع.";
 
         const chipped = intStr(loc.chippedCount);
         if (chipped === null)
-          fieldErrs[`chipped_${ai}_${li}`] = "يرجى إدخال عدد الحيوانات المُرقّمة.";
+          fieldErrs[`chipped_${ai}_${li}`] = `يرجى إدخال عدد رؤوس ${atLabel} المُرقّمة.`;
         else if (Number.isNaN(chipped))
-          fieldErrs[`chipped_${ai}_${li}`] = "عدد الحيوانات المُرقّمة غير صحيح.";
+          fieldErrs[`chipped_${ai}_${li}`] = `عدد رؤوس ${atLabel} المُرقّمة غير صحيح.`;
 
         const males = intStr(loc.males);
         if (males === null)
@@ -157,7 +160,7 @@ export default function DeclarationForm({
         else if (Number.isNaN(males))
           fieldErrs[`males_${ai}_${li}`] = "عدد الذكور غير صحيح.";
         else if (typeof chipped === "number" && !Number.isNaN(chipped) && males > chipped)
-          fieldErrs[`males_${ai}_${li}`] = "عدد الذكور لا يمكن أن يتجاوز عدد الحيوانات المُرقّمة.";
+          fieldErrs[`males_${ai}_${li}`] = `عدد الذكور لا يمكن أن يتجاوز عدد رؤوس ${atLabel} المُرقّمة.`;
 
         const tenders = intStr(loc.numTenders);
         if (tenders === null)
@@ -191,7 +194,8 @@ export default function DeclarationForm({
 
   async function action(fd: FormData) {
     const mobile = String(fd.get("mobile") ?? "");
-    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile);
+    const pledged = fd.get("pledge") === "on";
+    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile, pledged);
     setFieldErrors(fieldErrs);
     setFormErrors(formErrs);
     setServerError("");
@@ -384,7 +388,7 @@ export default function DeclarationForm({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="field-label">
-                      عدد الحيوانات المُرقّمة (تحمل شريحة)
+                      عدد رؤوس {at.label} المُرقّمة (تحمل شريحة)
                     </label>
                     <input
                       type="number"
@@ -500,7 +504,25 @@ export default function DeclarationForm({
         );
       })}
 
-      <div className="card">
+      <div className="card space-y-4">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="pledge"
+              required
+              className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 accent-gov"
+            />
+            <span className="text-sm text-gray-700 leading-relaxed">
+              {/* Placeholder — final wording to be supplied */}
+              أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
+            </span>
+          </label>
+          {fieldErrors.pledge && (
+            <p className="mt-2 text-sm text-red-600">{fieldErrors.pledge}</p>
+          )}
+        </div>
+
         <SubmitButton isEditing={isEditing} />
         <p className="mt-2 text-xs text-gray-500">
           {isEditing

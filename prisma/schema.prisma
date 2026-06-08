@@ -22,9 +22,10 @@ model Declaration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  animalGroups AnimalGroup[]
-  audit        Audit?
-  revisions    DeclarationRevision[]
+  animalGroups    AnimalGroup[]
+  audit           Audit?
+  revisions       DeclarationRevision[]
+  soloAssignments Assignment[]          @relation("SoloAssignment")
 }
 
 model DeclarationRevision {
@@ -86,6 +87,7 @@ model AuditAnimalResult {
   locationLink      String
   latitude          Float?
   longitude         Float?
+  manualCount       Int?
 
   audit    Audit         @relation(fields: [auditId], references: [id], onDelete: Cascade)
   readings ChipReading[]
@@ -127,6 +129,35 @@ enum AnimalType {
 enum ViolationStatus {
   NONE
   VIOLATION
+}
+
+enum GroupType {
+  SMALL
+  SOLO
+}
+
+model Supervisor {
+  id          Int          @id @default(autoincrement())
+  civilId     String       @unique
+  name        String
+  assignments Assignment[]
+}
+
+model Assignment {
+  id                Int            @id @default(autoincrement())
+  supervisorId      Int
+  animalType        AnimalType
+  gatheringPoint    GatheringPoint
+  groupType         GroupType
+  soloDeclarationId Int?
+  groupKey          String         @unique
+  createdAt         DateTime       @default(now())
+
+  supervisor      Supervisor   @relation(fields: [supervisorId], references: [id], onDelete: Cascade)
+  soloDeclaration Declaration? @relation("SoloAssignment", fields: [soloDeclarationId], references: [id], onDelete: Cascade)
+
+  @@index([supervisorId])
+  @@index([animalType, gatheringPoint])
 }
 
 enum DifferenceReason {

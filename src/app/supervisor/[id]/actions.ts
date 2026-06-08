@@ -109,8 +109,10 @@ export async function submitAudit(
         formData.get(`locationLink_${type}_${siteIndex}`) ?? ""
       ).trim();
       const vs = String(formData.get(`violationStatus_${type}_${siteIndex}`) ?? "");
-      const file = formData.get(`chipFile_${type}_${siteIndex}`);
-      const hasFile = file instanceof File && file.size > 0;
+      const uploadedFiles = formData
+        .getAll(`chipFile_${type}_${siteIndex}`)
+        .filter((f): f is File => f instanceof File && f.size > 0);
+      const hasFile = uploadedFiles.length > 0;
       const existingResult = existingAudit?.animalResults.find(
         (r) => r.animalType === type && r.siteIndex === siteIndex
       );
@@ -139,10 +141,11 @@ export async function submitAudit(
       let chipContent: string | null = null;
       if (hasFile) {
         try {
-          chipContent = await (file as File).text();
+          const texts = await Promise.all(uploadedFiles.map(f => f.text()));
+          chipContent = texts.join("\n");
         } catch {
           return {
-            error: `تعذّرت قراءة ملف الشرائح لـ${siteLabel}. تأكّد من أنه ملف نصي صالح.`
+            error: `تعذّرت قراءة ملف الشرائح لـ${siteLabel}. تأكّد من أنها ملفات نصية صالحة.`
           };
         }
       }
@@ -209,6 +212,11 @@ export async function submitAudit(
     });
 
     for (const p of payloads) {
+      const manualCountRaw = String(formData.get(`manualCount_${p.animalType}_${p.siteIndex}`) ?? "").trim();
+      const manualCount = manualCountRaw !== "" && /^\d+$/.test(manualCountRaw)
+        ? parseInt(manualCountRaw, 10)
+        : null;
+
       const result = await tx.auditAnimalResult.upsert({
         where: {
           auditId_animalType_siteIndex: {
@@ -222,7 +230,8 @@ export async function submitAudit(
           differenceReasons: p.differenceReasons,
           locationLink: p.locationLink,
           latitude: p.lat,
-          longitude: p.lng
+          longitude: p.lng,
+          manualCount
         },
         create: {
           auditId: audit.id,
@@ -232,7 +241,8 @@ export async function submitAudit(
           differenceReasons: p.differenceReasons,
           locationLink: p.locationLink,
           latitude: p.lat,
-          longitude: p.lng
+          longitude: p.lng,
+          manualCount
         }
       });
 
@@ -269,7 +279,7 @@ export async function updateChipFlags(
   if (!Number.isInteger(resultId)) return { error: "معرّف النتيجة غير صالح." };
 
   const flagsPayloadRaw = String(formData.get("flagsPayload") ?? "");
-  type FlagEntry = { id: number; multipleChips: boolean; doesntBelong: boolean };
+  type FlagEntry = { id: number; doesntBelong: boolean };
   let flags: FlagEntry[];
   try {
     flags = JSON.parse(flagsPayloadRaw);
@@ -298,10 +308,7 @@ export async function updateChipFlags(
       .map((f) =>
         prisma.chipReading.update({
           where: { id: f.id },
-          data: {
-            flaggedMultipleChips: f.multipleChips,
-            flaggedDoesntBelong: f.doesntBelong
-          }
+          data: { flaggedDoesntBelong: f.doesntBelong }
         })
       )
   );

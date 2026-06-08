@@ -32,22 +32,32 @@ export default function ChipFlagsTable({
   readings: ChipReadingRow[];
   label: string;
 }) {
-  type FlagMap = Map<number, { mc: boolean; db: boolean }>;
+  type FlagMap = Map<number, { db: boolean }>;
 
   const [flags, setFlags] = useState<FlagMap>(() => {
     const m: FlagMap = new Map();
     for (const r of readings) {
-      m.set(r.id, { mc: r.flaggedMultipleChips, db: r.flaggedDoesntBelong });
+      m.set(r.id, { db: r.flaggedDoesntBelong });
     }
     return m;
   });
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  // Compute, for each starred reading, the rawChip of the last non-starred reading above it
+  const originalChipMap = new Map<number, string>();
+  let lastNonStar: string | null = null;
+  for (const r of readings) {
+    if (!r.flaggedSymbol) {
+      lastNonStar = r.rawChip;
+    } else if (lastNonStar !== null) {
+      originalChipMap.set(r.id, lastNonStar);
+    }
+  }
+
   const flagsPayload = JSON.stringify(
     readings.map((r) => ({
       id: r.id,
-      multipleChips: flags.get(r.id)?.mc ?? false,
       doesntBelong: flags.get(r.id)?.db ?? false
     }))
   );
@@ -63,19 +73,10 @@ export default function ChipFlagsTable({
     }
   }
 
-  function toggleMc(id: number, checked: boolean) {
-    setFlags((prev) => {
-      const next = new Map(prev);
-      const f = next.get(id) ?? { mc: false, db: false };
-      next.set(id, { ...f, mc: checked });
-      return next;
-    });
-  }
-
   function toggleDb(id: number, checked: boolean) {
     setFlags((prev) => {
       const next = new Map(prev);
-      const f = next.get(id) ?? { mc: false, db: false };
+      const f = next.get(id) ?? { db: false };
       next.set(id, { ...f, db: checked });
       return next;
     });
@@ -97,43 +98,40 @@ export default function ChipFlagsTable({
               <th className="border border-gray-300 px-2 py-1">رقم الشريحة</th>
               <th className="border border-gray-300 px-2 py-1">تنبيهات تلقائية</th>
               <th className="border border-gray-300 px-2 py-1 text-xs leading-tight">
-                يحمل أكثر من شريحة
-              </th>
-              <th className="border border-gray-300 px-2 py-1 text-xs leading-tight">
                 ليست باسم المربي
               </th>
             </tr>
           </thead>
           <tbody>
             {readings.map((r, i) => {
-              const f = flags.get(r.id) ?? { mc: false, db: false };
-              const anyFlag = r.flaggedSymbol || r.flaggedProximity || f.mc || f.db;
+              const db = flags.get(r.id)?.db ?? false;
+              const anyFlag = r.flaggedSymbol || r.flaggedProximity || db;
               const autoNotes = [
                 r.flaggedSymbol ? "رمز/نجمة" : "",
                 r.flaggedProximity ? "تقارب زمني ≤ 5ث" : ""
               ]
                 .filter(Boolean)
                 .join(" + ");
+              const originalChip = originalChipMap.get(r.id);
               return (
                 <tr key={r.id} className={anyFlag ? "bg-amber-50 text-center" : "text-center"}>
                   <td className="border border-gray-300 px-2 py-1">{i + 1}</td>
                   <td className="border border-gray-300 px-2 py-1">{r.readAt}</td>
-                  <td className="border border-gray-300 px-2 py-1 font-mono">{r.rawChip}</td>
+                  <td className="border border-gray-300 px-2 py-1 font-mono">
+                    {r.rawChip}
+                    {originalChip && (
+                      <div className="text-xs text-gray-500 font-normal">
+                        الشريحة الأصلية: {originalChip}
+                      </div>
+                    )}
+                  </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs">
                     {autoNotes || "—"}
                   </td>
                   <td className="border border-gray-300 px-2 py-1">
                     <input
                       type="checkbox"
-                      checked={f.mc}
-                      onChange={(e) => toggleMc(r.id, e.target.checked)}
-                      className="h-4 w-4 accent-gov"
-                    />
-                  </td>
-                  <td className="border border-gray-300 px-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={f.db}
+                      checked={db}
                       onChange={(e) => toggleDb(r.id, e.target.checked)}
                       className="h-4 w-4 accent-gov"
                     />
