@@ -12,6 +12,14 @@ const citizens = [
   { civilId: "278092133445", name: "سعد عبيد ناصر" }
 ];
 
+// Test supervisors.
+const supervisors = [
+  { civilId: "289050133211", name: "علي أحمد حسن" },
+  { civilId: "276030244567", name: "محمد حسن عبدالله" },
+  { civilId: "284090355432", name: "خالد عبدالله سعد" },
+  { civilId: "291060466789", name: "عبدالرحمن سعد محمد" }
+];
+
 async function main() {
   for (const c of citizens) {
     await prisma.citizen.upsert({
@@ -21,6 +29,15 @@ async function main() {
     });
   }
   console.log(`Seeded ${citizens.length} citizens.`);
+
+  for (const s of supervisors) {
+    await prisma.supervisor.upsert({
+      where: { civilId: s.civilId },
+      update: { name: s.name },
+      create: s
+    });
+  }
+  console.log(`Seeded ${supervisors.length} supervisors.`);
 }
 
 main()

@@ -1,8 +1,8 @@
-import AuditPageContent from "./AuditPageContent";
+import AuditPageContent from "@/app/supervisor/[id]/AuditPageContent";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuditPage({
+export default async function HeadAuditPage({
   params,
   searchParams
 }: {
@@ -13,7 +13,8 @@ export default async function AuditPage({
     <AuditPageContent
       params={params}
       searchParams={searchParams}
-      backHref="/supervisor"
+      backHref="/head-supervisor"
+      headSupervisorMode
     />
   );
 }

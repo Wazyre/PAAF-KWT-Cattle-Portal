@@ -55,7 +55,7 @@ function FarmerTable({
           {rows.map((row, idx) => (
             <ScheduleRow
               key={row.declarationId}
-              href={`/supervisor/${row.declarationId}?animalType=${selectedType}`}
+              href={`/head-supervisor/${row.declarationId}?animalType=${selectedType}`}
             >
               <td className="border border-gray-300 px-3 py-2 text-center text-gray-500">
                 {idx + 1}
@@ -70,7 +70,7 @@ function FarmerTable({
                 {row.lat !== null && row.lng !== null ? (
                   <MapLink lat={row.lat} lng={row.lng} />
                 ) : (
-                  <span className="text-gray-400">—</span>
+                  <span className="text-gray-400">-</span>
                 )}
                 {row.locationCount > 1 && (
                   <span className="mr-1 text-xs text-gray-400">

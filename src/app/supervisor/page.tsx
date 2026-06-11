@@ -59,7 +59,7 @@ function FarmerTable({
                 {row.lat !== null && row.lng !== null ? (
                   <MapLink lat={row.lat} lng={row.lng} />
                 ) : (
-                  <span className="text-gray-400">—</span>
+                  <span className="text-gray-400">-</span>
                 )}
                 {row.locationCount > 1 && (
                   <span className="mr-1 text-xs text-gray-400">
@@ -330,7 +330,7 @@ export default async function SupervisorPage({
               {view.groupType === "SMALL" ? (
                 <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2">
                   <span className="text-sm font-semibold text-gray-700">
-                    {view.gpLabel} — مجموعة المربّين (حتى {HEAD_THRESHOLD} رأس)
+                    {view.gpLabel} - مجموعة المربّين (حتى {HEAD_THRESHOLD} رأس)
                   </span>
                   <span className="text-xs text-gray-500">
                     {view.farmers.length} مربّي
@@ -339,7 +339,7 @@ export default async function SupervisorPage({
               ) : (
                 <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
                   <span className="text-sm font-semibold text-amber-800">
-                    {view.gpLabel} — مربّي مفرد: {view.soloName}
+                    {view.gpLabel} - مربّي مفرد: {view.soloName}
                   </span>
                   <span className="text-xs font-semibold text-amber-700">
                     {view.soloChipped} رأس

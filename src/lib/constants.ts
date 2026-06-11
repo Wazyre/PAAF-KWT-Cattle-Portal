@@ -20,7 +20,7 @@ export const VIOLATION_STATUSES = [
 ] as const;
 
 export const DIFFERENCE_REASONS = [
-  { value: "NOT_CHIPPED", label: "لم يتم الترقيم" },
+  { value: "NOT_CHIPPED", label: "لا تحمل شرائح" },
   { value: "MULTIPLE_CHIPS", label: "الحيوان يحمل أكثر من شريحة" },
   { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي" }
 ] as const;

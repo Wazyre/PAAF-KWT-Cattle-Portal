@@ -36,6 +36,7 @@ interface AnimalTypeSiteResult {
   manualCount: number | null;
   nonStarCount: number;
   multipleChipsCount: number;
+  doesntBelongCount?: number;
 }
 
 type ChipPreviewState = {
@@ -71,7 +72,8 @@ export default function AuditForm({
   declarationId,
   animalTypes,
   defaults,
-  animalTypeFilter
+  animalTypeFilter,
+  headSupervisorMode = false
 }: {
   declarationId: number;
   animalTypes: AnimalTypeEntry[];
@@ -79,6 +81,7 @@ export default function AuditForm({
     animalResults: Record<string, (AnimalTypeSiteResult | null | undefined)[]>;
   };
   animalTypeFilter?: string;
+  headSupervisorMode?: boolean;
 }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
@@ -199,10 +202,15 @@ export default function AuditForm({
     window.open(url, "_blank");
   }
 
+  const returnToBase = headSupervisorMode
+    ? `/head-supervisor/${declarationId}`
+    : `/supervisor/${declarationId}`;
+
   return (
     <form ref={formRef} action={action} noValidate className="card space-y-5">
       <h2 className="text-lg font-bold text-gov-dark">بيانات التدقيق</h2>
       <input type="hidden" name="declarationId" value={declarationId} />
+      <input type="hidden" name="returnTo" value={returnToBase} />
       <input type="hidden" name="animalTypesToProcess" value={JSON.stringify(animalTypes)} />
       {animalTypeFilter && (
         <input type="hidden" name="animalTypeFilter" value={animalTypeFilter} />
@@ -232,7 +240,7 @@ export default function AuditForm({
                   className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-4"
                 >
                   <h4 className="font-semibold text-gray-700">
-                    {gatheringPointLabel} — الموقع {siteIndex + 1}
+                    {gatheringPointLabel} - الموقع {siteIndex + 1}
                   </h4>
                   {fieldErrors[`${previewKey}_site`] && (
                     <p className="text-sm text-red-600">{fieldErrors[`${previewKey}_site`]}</p>
@@ -312,7 +320,7 @@ export default function AuditForm({
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center gap-3 text-xs text-gray-700">
                           <span className="font-semibold">
-                            {preview.fileCount > 1 ? `${preview.fileCount} ملفات` : "ملف واحد"} — {preview.readings.length} قراءة صالحة
+                            {preview.fileCount > 1 ? `${preview.fileCount} ملفات` : "ملف واحد"} - {preview.readings.length} قراءة صالحة
                           </span>
                           {preview.invalidLineCount > 0 && (
                             <span className="text-amber-700 font-semibold">({preview.invalidLineCount} سطر غير صالح)</span>
@@ -343,7 +351,7 @@ export default function AuditForm({
                                     <td className="border border-gray-300 px-2 py-1">{i + 1}</td>
                                     <td className="border border-gray-300 px-2 py-1">{fmtMs(r.ms)}</td>
                                     <td className="border border-gray-300 px-2 py-1 font-mono">{r.rawChip}</td>
-                                    <td className="border border-gray-300 px-2 py-1">{notes || "—"}</td>
+                                    <td className="border border-gray-300 px-2 py-1">{notes || "-"}</td>
                                   </tr>
                                 );
                               })}
@@ -368,11 +376,15 @@ export default function AuditForm({
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {DIFFERENCE_REASONS.map((d) => {
+                        const savedDoesntBelongCount = saved?.doesntBelongCount ?? null;
+
                         const autoState: boolean | null =
                           d.value === "NOT_CHIPPED"
                             ? counts.notChipped !== null ? counts.notChipped > 0 : null
                             : d.value === "MULTIPLE_CHIPS"
                             ? counts.multipleChips !== null ? counts.multipleChips > 0 : null
+                            : d.value === "CHIP_DOESNT_BELONG"
+                            ? savedDoesntBelongCount !== null ? savedDoesntBelongCount > 0 : null
                             : null;
 
                         const isAuto = autoState !== null;
@@ -383,6 +395,7 @@ export default function AuditForm({
                         const countBadge: number | null =
                           d.value === "NOT_CHIPPED" ? counts.notChipped
                           : d.value === "MULTIPLE_CHIPS" ? counts.multipleChips
+                          : d.value === "CHIP_DOESNT_BELONG" ? savedDoesntBelongCount
                           : null;
 
                         return (
@@ -415,12 +428,15 @@ export default function AuditForm({
                       })}
                     </div>
                     {(() => {
+                      const savedDoesntBelongCount = saved?.doesntBelongCount ?? null;
                       const hasViolation = DIFFERENCE_REASONS.some((d) => {
                         const autoState: boolean | null =
                           d.value === "NOT_CHIPPED"
                             ? counts.notChipped !== null ? counts.notChipped > 0 : null
                             : d.value === "MULTIPLE_CHIPS"
                             ? counts.multipleChips !== null ? counts.multipleChips > 0 : null
+                            : d.value === "CHIP_DOESNT_BELONG"
+                            ? savedDoesntBelongCount !== null ? savedDoesntBelongCount > 0 : null
                             : null;
                         return autoState !== null ? autoState : (checkedReasons[previewKey]?.has(d.value) ?? false);
                       });
@@ -450,7 +466,7 @@ export default function AuditForm({
         {animalTypeFilter && (
           <button
             type="button"
-            onClick={() => handlePrint(`/supervisor/${declarationId}/print?animalType=${encodeURIComponent(animalTypeFilter)}`)}
+            onClick={() => handlePrint(`${returnToBase}/print?animalType=${encodeURIComponent(animalTypeFilter)}`)}
             className="btn-secondary"
           >
             طباعة هذا النوع
@@ -458,7 +474,7 @@ export default function AuditForm({
         )}
         <button
           type="button"
-          onClick={() => handlePrint(`/supervisor/${declarationId}/print`)}
+          onClick={() => handlePrint(`${returnToBase}/print`)}
           className="btn-secondary"
         >
           طباعة جميع الأنواع

@@ -36,7 +36,7 @@ export default async function SuccessPage({
           </div>
         </div>
         <p className="mt-3 text-sm text-gray-600">
-          المُقرّ: {decl.name} — الرقم المدني: {decl.civilId}
+          المُقرّ: {decl.name} - الرقم المدني: {decl.civilId}
         </p>
       </div>
 

@@ -264,10 +264,17 @@ export async function submitAudit(
   });
 
   revalidatePath(`/supervisor/${declarationId}`);
+  revalidatePath(`/head-supervisor/${declarationId}`);
+
+  const returnToRaw = String(formData.get("returnTo") ?? "").trim();
+  const safeReturnTo = /^\/(?:head-)?supervisor\/\d+$/.test(returnToRaw)
+    ? returnToRaw
+    : `/supervisor/${declarationId}`;
+
   const animalTypeFilter = String(formData.get("animalTypeFilter") ?? "").trim();
   const redirectUrl = animalTypeFilter
-    ? `/supervisor/${declarationId}?saved=1&animalType=${encodeURIComponent(animalTypeFilter)}`
-    : `/supervisor/${declarationId}?saved=1`;
+    ? `${safeReturnTo}?saved=1&animalType=${encodeURIComponent(animalTypeFilter)}`
+    : `${safeReturnTo}?saved=1`;
   redirect(redirectUrl);
 }
 

@@ -46,7 +46,7 @@ export default function RootLayout({
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
         <footer className="no-print mx-auto max-w-4xl px-4 pb-8 pt-4 text-center text-xs leading-relaxed text-gray-500">
-          <div>{AUTHORITY_NAME} — دولة الكويت</div>
+          <div>{AUTHORITY_NAME} - دولة الكويت</div>
           <div>جميع الحقوق محفوظة © {new Date().getFullYear()}</div>
         </footer>
       </body>

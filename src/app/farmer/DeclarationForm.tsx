@@ -514,7 +514,7 @@ export default function DeclarationForm({
               className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 accent-gov"
             />
             <span className="text-sm text-gray-700 leading-relaxed">
-              {/* Placeholder — final wording to be supplied */}
+              {/* Placeholder final wording to be supplied */}
               أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
             </span>
           </label>
