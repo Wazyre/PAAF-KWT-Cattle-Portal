@@ -368,11 +368,11 @@ export default function AuditForm({
                       <span className="field-label">
                         أسباب الاختلاف في عدد {label} (اختر كل ما ينطبق)
                       </span>
-                      {counts.difference !== null && (
+                      {/* {counts.difference !== null && (
                         <span className={`text-sm font-semibold ${counts.difference < 0 ? "text-green-700" : counts.difference > 0 ? "text-red-600" : "text-gray-600"}`}>
                           الفرق: {counts.difference > 0 ? `+${counts.difference}` : counts.difference}
                         </span>
-                      )}
+                      )} */}
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {DIFFERENCE_REASONS.map((d) => {
