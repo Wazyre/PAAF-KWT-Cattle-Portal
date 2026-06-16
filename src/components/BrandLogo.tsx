@@ -1,4 +1,5 @@
 "use client";
+// Authority brand logo: loads /public/logo.png with an inline-SVG emblem as fallback.
 
 import { useState } from "react";
 

@@ -1,5 +1,7 @@
 "use client";
+// OpenStreetMap link for a coordinate pair; stops row-click propagation so it doesn't trigger row navigation.
 
+// Inline OpenStreetMap link; stopPropagation prevents the parent row's onClick from also firing.
 export default function MapLink({ lat, lng }: { lat: number; lng: number }) {
   return (
     <a

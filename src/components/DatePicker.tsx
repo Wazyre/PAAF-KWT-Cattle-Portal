@@ -1,4 +1,5 @@
 "use client";
+// Arabic calendar date picker: displays DD-MM-YYYY but submits canonical ISO YYYY-MM-DD via a hidden input.
 
 import { useEffect, useRef, useState } from "react";
 import { IconCalendar } from "./icons";

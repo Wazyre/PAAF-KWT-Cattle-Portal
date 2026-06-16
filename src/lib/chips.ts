@@ -1,3 +1,4 @@
+// Parses uploaded chip-reading files (DDMMYYYY,HHmmss,<chip>) and flags symbol/proximity violations.
 import { PROXIMITY_SECONDS } from "./constants";
 
 export interface ParsedReading {

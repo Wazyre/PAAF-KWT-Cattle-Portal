@@ -1,4 +1,5 @@
 "use server";
+// Server actions for the audit page: submitAudit (upserts audit + per-site results + chip readings) and updateChipFlags (toggle doesntBelong).
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -19,6 +20,7 @@ export interface ChipFlagsState {
 const VS = new Set<string>(VIOLATION_STATUSES.map((v) => v.value));
 const DR = new Set<string>(DIFFERENCE_REASONS.map((d) => d.value));
 
+// Resolve a pasted location string to coordinates, expanding short links first if needed.
 async function resolveLocation(
   link: string
 ): Promise<{ lat: number; lng: number } | null> {
@@ -30,6 +32,7 @@ async function resolveLocation(
   return coords ?? null;
 }
 
+// Validate per-site audit inputs and chip files, then upsert the audit, its per-site results, and chip readings inside one transaction.
 export async function submitAudit(
   _prev: AuditState,
   formData: FormData
@@ -278,6 +281,7 @@ export async function submitAudit(
   redirect(redirectUrl);
 }
 
+// Persist the supervisor's "doesn't belong" toggles for an audit result's chip readings.
 export async function updateChipFlags(
   _prev: ChipFlagsState,
   formData: FormData

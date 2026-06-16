@@ -1,3 +1,4 @@
+// Supervisor portal: Civil-ID login, then shows the visit schedule of farmer groups assigned to that supervisor.
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ANIMAL_TYPES, gatheringPointLabel } from "@/lib/constants";
@@ -20,6 +21,7 @@ type FarmerRow = {
   hasAudit: boolean;
 };
 
+// Table listing the farmer rows for one assignment (small group or solo).
 function FarmerTable({
   rows,
   selectedType
@@ -89,6 +91,7 @@ function FarmerTable({
   );
 }
 
+// Supervisor portal: Civil-ID login form, then the list of groups assigned to that supervisor with their visit dates.
 export default async function SupervisorPage({
   searchParams
 }: {
@@ -197,8 +200,12 @@ export default async function SupervisorPage({
     groupType: "SMALL" | "SOLO";
     soloName?: string;
     soloChipped?: number;
+    scheduledDate: string | null;
     farmers: FarmerRow[];
   };
+
+  const toDateInput = (d: Date | null) =>
+    d ? d.toISOString().slice(0, 10) : null;
 
   const assignmentViews: AssignmentView[] = [];
 
@@ -221,6 +228,7 @@ export default async function SupervisorPage({
         groupType: "SOLO",
         soloName: decl.name,
         soloChipped: totalChipped,
+        scheduledDate: toDateInput(asgn.scheduledDate ?? null),
         farmers: [
           {
             declarationId: decl.id,
@@ -283,6 +291,7 @@ export default async function SupervisorPage({
         key: asgn.groupKey,
         gpLabel: gatheringPointLabel(asgn.gatheringPoint),
         groupType: "SMALL",
+        scheduledDate: toDateInput(asgn.scheduledDate ?? null),
         farmers
       });
     }
@@ -329,18 +338,32 @@ export default async function SupervisorPage({
             <div key={view.key} className="card overflow-hidden p-0">
               {view.groupType === "SMALL" ? (
                 <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {view.gpLabel} - مجموعة المربّين (حتى {HEAD_THRESHOLD} رأس)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-700">
+                      {view.gpLabel} - مجموعة المربّين (حتى {HEAD_THRESHOLD} رأس)
+                    </span>
+                    {view.scheduledDate && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                        موعد الزيارة: {view.scheduledDate}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-500">
                     {view.farmers.length} مربّي
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
-                  <span className="text-sm font-semibold text-amber-800">
-                    {view.gpLabel} - مربّي مفرد: {view.soloName}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-amber-800">
+                      {view.gpLabel} - مربّي مفرد: {view.soloName}
+                    </span>
+                    {view.scheduledDate && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                        موعد الزيارة: {view.scheduledDate}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs font-semibold text-amber-700">
                     {view.soloChipped} رأس
                   </span>

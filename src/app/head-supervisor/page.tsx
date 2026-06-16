@@ -1,3 +1,4 @@
+// Head supervisor dashboard: lists farmers by gathering point split into small-group/solo, and lets the head assign each group to a supervisor + visit date.
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ANIMAL_TYPES, GATHERING_POINTS, gatheringPointLabel } from "@/lib/constants";
@@ -31,6 +32,7 @@ type GpGroup = {
   largeFarmers: FarmerRow[];
 };
 
+// Table listing farmer rows inside a group on the head supervisor dashboard.
 function FarmerTable({
   rows,
   selectedType
@@ -100,6 +102,7 @@ function FarmerTable({
   );
 }
 
+// Head supervisor dashboard: groups farmers by gathering point into small-group vs solo, and renders assignment controls per group.
 export default async function HeadSupervisorPage({
   searchParams
 }: {
@@ -126,8 +129,18 @@ export default async function HeadSupervisorPage({
     })
   ]);
 
-  const assignmentMap = new Map<string, number>();
-  for (const a of assignments) assignmentMap.set(a.groupKey, a.supervisorId);
+  const assignmentMap = new Map<
+    string,
+    { supervisorId: number; scheduledDate: Date | null }
+  >();
+  for (const a of assignments)
+    assignmentMap.set(a.groupKey, {
+      supervisorId: a.supervisorId,
+      scheduledDate: a.scheduledDate ?? null
+    });
+
+  const toDateInput = (d: Date | null) =>
+    d ? d.toISOString().slice(0, 10) : "";
 
   // Assigned supervisor name lookup
   const supervisorMap = new Map<number, string>();
@@ -225,8 +238,10 @@ export default async function HeadSupervisorPage({
 
               {gpGroup.smallFarmers.length > 0 && (() => {
                 const groupKey = `${selectedType}_${gpGroup.gpValue}_SMALL`;
-                const assignedId = assignmentMap.get(groupKey) ?? null;
+                const entry = assignmentMap.get(groupKey) ?? null;
+                const assignedId = entry?.supervisorId ?? null;
                 const assignedName = assignedId ? supervisorMap.get(assignedId) : undefined;
+                const scheduledStr = toDateInput(entry?.scheduledDate ?? null);
                 return (
                   <div className="card overflow-hidden p-0">
                     <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2">
@@ -242,6 +257,11 @@ export default async function HeadSupervisorPage({
                             {assignedName}
                           </span>
                         )}
+                        {scheduledStr && (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                            موعد الزيارة: {scheduledStr}
+                          </span>
+                        )}
                       </div>
                       <AssignControl
                         animalType={selectedType}
@@ -249,6 +269,7 @@ export default async function HeadSupervisorPage({
                         groupType="SMALL"
                         supervisors={supervisors}
                         currentSupervisorId={assignedId}
+                        currentScheduledDate={scheduledStr}
                       />
                     </div>
                     <FarmerTable rows={gpGroup.smallFarmers} selectedType={selectedType} />
@@ -258,8 +279,10 @@ export default async function HeadSupervisorPage({
 
               {gpGroup.largeFarmers.map((row) => {
                 const groupKey = `${selectedType}_${gpGroup.gpValue}_SOLO_${row.declarationId}`;
-                const assignedId = assignmentMap.get(groupKey) ?? null;
+                const entry = assignmentMap.get(groupKey) ?? null;
+                const assignedId = entry?.supervisorId ?? null;
                 const assignedName = assignedId ? supervisorMap.get(assignedId) : undefined;
+                const scheduledStr = toDateInput(entry?.scheduledDate ?? null);
                 return (
                   <div key={row.declarationId} className="card overflow-hidden p-0">
                     <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2">
@@ -275,6 +298,11 @@ export default async function HeadSupervisorPage({
                             {assignedName}
                           </span>
                         )}
+                        {scheduledStr && (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                            موعد الزيارة: {scheduledStr}
+                          </span>
+                        )}
                       </div>
                       <AssignControl
                         animalType={selectedType}
@@ -283,6 +311,7 @@ export default async function HeadSupervisorPage({
                         soloDeclarationId={row.declarationId}
                         supervisors={supervisors}
                         currentSupervisorId={assignedId}
+                        currentScheduledDate={scheduledStr}
                       />
                     </div>
                     <FarmerTable rows={[row]} selectedType={selectedType} />

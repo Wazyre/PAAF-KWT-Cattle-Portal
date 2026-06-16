@@ -1,3 +1,4 @@
+// Farmer portal: Civil-ID gate, then renders DeclarationForm prefilled with any existing declaration.
 import Link from "next/link";
 import { resolveIdentity } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
@@ -5,6 +6,7 @@ import DeclarationForm from "./DeclarationForm";
 
 export const dynamic = "force-dynamic";
 
+// Renders the Civil-ID gate, or the prefilled declaration form once identity is resolved.
 export default async function FarmerPage({
   searchParams
 }: {

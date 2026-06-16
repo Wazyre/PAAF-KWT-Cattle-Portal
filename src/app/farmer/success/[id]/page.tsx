@@ -1,3 +1,4 @@
+// Post-submit confirmation page showing the transaction number to keep for field audit.
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -5,6 +6,7 @@ import { IconCheckCircle } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
+// Confirmation page after submitting or updating a declaration; surfaces the transaction number.
 export default async function SuccessPage({
   params,
   searchParams

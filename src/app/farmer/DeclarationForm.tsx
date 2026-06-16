@@ -1,4 +1,5 @@
 "use client";
+// Multi-section declaration form: per animal type, add/remove farm locations with map preview and live validation.
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -30,6 +31,7 @@ interface InitialData {
   animalGroups: InitialAnimalGroup[];
 }
 
+// Submit button bound to the form action, showing a pending label via useFormStatus.
 function SubmitButton({ isEditing }: { isEditing: boolean }) {
   const { pending } = useFormStatus();
   return (
@@ -67,10 +69,12 @@ interface AnimalTypeSection {
   locations: LocationRow[];
 }
 
+// Random short id used to key location rows in React lists.
 function genId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// Build a blank LocationRow used when the user adds a new farm site.
 function emptyLocation(): LocationRow {
   return {
     id: genId(),
@@ -85,6 +89,7 @@ function emptyLocation(): LocationRow {
   };
 }
 
+// Hydrate form state from an existing declaration, or return one empty section per animal type.
 function initSections(initialData?: InitialData | null): AnimalTypeSection[] {
   return ANIMAL_TYPES.map((at) => {
     const group = initialData?.animalGroups.find((g) => g.animalType === at.value);
@@ -106,6 +111,7 @@ function initSections(initialData?: InitialData | null): AnimalTypeSection[] {
   });
 }
 
+// Parse a numeric input string: empty returns null, invalid returns NaN, valid returns the int.
 function intStr(v: string): number | null {
   const s = v.trim();
   if (s === "") return null;
@@ -113,6 +119,7 @@ function intStr(v: string): number | null {
   return Number.isInteger(n) && n >= 0 ? n : NaN;
 }
 
+// Stateful declaration form: per animal type, add or remove farm sites with map preview, validation, and submit.
 export default function DeclarationForm({
   civilId,
   name,

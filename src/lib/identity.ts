@@ -1,3 +1,4 @@
+// Resolves a Civil ID to a citizen name. Integration seam for the future Sahel/PACI SSO swap.
 import { prisma } from "./prisma";
 
 export interface ResolvedIdentity {

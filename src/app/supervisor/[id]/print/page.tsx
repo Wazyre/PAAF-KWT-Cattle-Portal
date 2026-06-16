@@ -1,3 +1,4 @@
+// Print-friendly audit report: declaration, proximity alerts, audit results, and signature lines.
 import { prisma } from "@/lib/prisma";
 import { findProximityHits } from "@/lib/proximity";
 import DeclarationView from "@/components/DeclarationView";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 const VALID_TYPES = new Set<string>(ANIMAL_TYPES.map((a) => a.value));
 
+// Print-ready audit report: declaration view, proximity alerts, per-site audit results, and signature lines.
 export default async function PrintPage({
   params,
   searchParams

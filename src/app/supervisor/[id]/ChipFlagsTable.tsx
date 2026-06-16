@@ -1,4 +1,5 @@
 "use client";
+// Per-reading flag table letting the supervisor mark chips as "not registered to this farmer".
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
@@ -14,6 +15,7 @@ export interface ChipReadingRow {
   flaggedDoesntBelong: boolean;
 }
 
+// Save button for the per-reading flags table; reflects pending state via useFormStatus.
 function SaveButton() {
   const { pending } = useFormStatus();
   return (
@@ -23,6 +25,7 @@ function SaveButton() {
   );
 }
 
+// Table of saved chip readings, letting the supervisor flag each chip as "not registered to this farmer".
 export default function ChipFlagsTable({
   resultId,
   readings,

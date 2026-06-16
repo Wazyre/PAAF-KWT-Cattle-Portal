@@ -1,10 +1,13 @@
 "use client";
+// Custom hour/minute/second picker with Arabic labels; submits canonical HH:mm:ss via a hidden input.
 
 import { useEffect, useRef, useState } from "react";
 import { IconClock } from "./icons";
 
+// Zero-pad an integer to two digits.
 const pad = (n: number) => String(n).padStart(2, "0");
 
+// Parse an HH:mm or HH:mm:ss string into numeric parts; returns nulls if the format does not match.
 function parse(value: string): {
   h: number | null;
   m: number | null;

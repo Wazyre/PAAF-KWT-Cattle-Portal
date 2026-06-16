@@ -1,3 +1,4 @@
+// Kuwait mobile validation and normalization (strips country code, enforces 8-digit 5/6/9 prefix).
 // Kuwait mobile numbers: 8 digits beginning with 5, 6, or 9.
 // (2 = landline, so it is intentionally rejected for a personal mobile.)
 export const KUWAIT_MOBILE_RE = /^[569]\d{7}$/;
@@ -10,6 +11,7 @@ export function normalizeKuwaitMobile(input: string): string {
   return d;
 }
 
+// True if the input (after country-code stripping) is a valid Kuwait mobile number.
 export function isValidKuwaitMobile(input: string): boolean {
   return KUWAIT_MOBILE_RE.test(normalizeKuwaitMobile(input));
 }

@@ -1,4 +1,5 @@
 "use server";
+// Server action that creates or revises a farmer declaration (stores prior version in DeclarationRevision).
 
 import { redirect } from "next/navigation";
 import type { GatheringPoint, AnimalType } from "@prisma/client";
@@ -14,12 +15,14 @@ export interface DeclarationState {
 const GP = new Set<string>(GATHERING_POINTS.map((g) => g.value));
 const AT = new Set<string>(ANIMAL_TYPES.map((a) => a.value));
 
+// Parse a value as a non-negative integer; return null if it isn't one.
 function intOrNull(v: unknown): number | null {
   if (typeof v !== "string" && typeof v !== "number") return null;
   const n = Number(v);
   return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
+// Validates the form payload, then creates a new declaration or stores the previous version in DeclarationRevision and updates the existing one.
 export async function submitDeclaration(
   _prev: DeclarationState,
   formData: FormData

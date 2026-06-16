@@ -1,3 +1,4 @@
+// PrismaClient singleton, reused across hot reloads to avoid exhausting DB connections in dev.
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };

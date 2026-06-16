@@ -1,6 +1,8 @@
+// Landing page: three entry cards (farmer self-declaration, supervisor audit, head supervisor).
 import Link from "next/link";
 import { IconClipboardEdit, IconClipboardCheck, IconAlertTriangle } from "@/components/icons";
 
+// Landing page with three portal entry cards.
 export default function HomePage() {
   return (
     <div className="space-y-6">

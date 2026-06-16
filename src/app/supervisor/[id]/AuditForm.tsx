@@ -1,4 +1,5 @@
 "use client";
+// Multi-site audit form: location link, manual count, chip-file upload with live preview, and auto-derived violation reasons.
 
 import { useState, useRef } from "react";
 import { useFormStatus } from "react-dom";
@@ -8,6 +9,7 @@ import { submitAudit } from "./actions";
 import { processChipFile } from "@/lib/chips";
 import type { ParsedReading } from "@/lib/chips";
 
+// Submit button bound to the audit form; reflects pending state via useFormStatus.
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -51,12 +53,14 @@ type ViolationCounts = {
   multipleChips: number | null;
 };
 
+// Format a UTC epoch-ms timestamp as "DD/MM/YYYY HH:mm:ss" for the chip-reading preview table.
 function fmtMs(ms: number): string {
   const d = new Date(ms);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
+// Count contiguous runs of star-flagged readings (sorted by time), the live-preview equivalent of computeMultipleChipsCount.
 function countStarGroups(readings: { flaggedSymbol: boolean; sortKey: number }[]): number {
   const sorted = [...readings].sort((a, b) => a.sortKey - b.sortKey);
   let count = 0;
@@ -68,6 +72,7 @@ function countStarGroups(readings: { flaggedSymbol: boolean; sortKey: number }[]
   return count;
 }
 
+// Per-site audit form: location link, manual count, chip-file upload with parsed preview, and auto-derived violation reasons.
 export default function AuditForm({
   declarationId,
   animalTypes,

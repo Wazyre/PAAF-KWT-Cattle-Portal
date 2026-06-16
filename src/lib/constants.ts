@@ -1,3 +1,4 @@
+// Domain enum values (ASCII, persisted) paired with Arabic display labels, plus proximity thresholds.
 // Central Arabic labels for all enums. UI reads from here; DB stores ASCII enums.
 
 export const GATHERING_POINTS = [
@@ -25,6 +26,7 @@ export const DIFFERENCE_REASONS = [
   { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي" }
 ] as const;
 
+// Generic enum value to Arabic label lookup; returns the value itself if no label is registered.
 function labelOf(
   list: ReadonlyArray<{ value: string; label: string }>,
   value: string | null | undefined

@@ -1,3 +1,4 @@
+// Shared audit page body for both /supervisor and /head-supervisor: loads the declaration, runs alerts (proximity, male ratio), renders saved readings, and mounts AuditForm.
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { findProximityHits } from "@/lib/proximity";
@@ -7,14 +8,17 @@ import { GATHERING_POINTS, ANIMAL_TYPES, animalTypeLabel } from "@/lib/constants
 import AuditForm from "./AuditForm";
 import ChipFlagsTable from "./ChipFlagsTable";
 
+// Gathering point Arabic label, falling back to the raw value if not found.
 function gpLabel(value: string): string {
   return GATHERING_POINTS.find((g) => g.value === value)?.label ?? value;
 }
 
+// Animal type Arabic label, falling back to the raw value if not found.
 function atLabel(value: string): string {
   return ANIMAL_TYPES.find((a) => a.value === value)?.label ?? value;
 }
 
+// Format a Date as "YYYY-MM-DD HH:mm:ss" using its ISO representation.
 function fmtDate(d: Date): string {
   return new Date(d).toISOString().replace("T", " ").slice(0, 19);
 }
@@ -32,6 +36,7 @@ interface AnimalGroupSnapshot {
   }>;
 }
 
+// Count contiguous runs of star-flagged readings; each run represents one animal carrying multiple chips.
 function computeMultipleChipsCount(readings: { readAt: Date; flaggedSymbol: boolean }[]): number {
   const sorted = [...readings].sort((a, b) => a.readAt.getTime() - b.readAt.getTime());
   let count = 0;
@@ -43,6 +48,7 @@ function computeMultipleChipsCount(readings: { readAt: Date; flaggedSymbol: bool
   return count;
 }
 
+// Loads the declaration with its audit, computes proximity and male-ratio alerts, renders saved readings, and mounts the AuditForm.
 export default async function AuditPageContent({
   params,
   searchParams,
@@ -362,6 +368,7 @@ export default async function AuditPageContent({
   );
 }
 
+// Fallback card shown when the requested declaration id is missing or invalid.
 function NotFoundCard({ backHref }: { backHref: string }) {
   return (
     <div className="space-y-4">

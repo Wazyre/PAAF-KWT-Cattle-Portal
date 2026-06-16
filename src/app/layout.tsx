@@ -1,3 +1,4 @@
+// Root RTL layout: Cairo Arabic font, authority header/footer, and global metadata.
 import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import Link from "next/link";
@@ -23,6 +24,7 @@ export const viewport: Viewport = {
   maximumScale: 5
 };
 
+// Root HTML shell rendered around every page in the app.
 export default function RootLayout({
   children
 }: {

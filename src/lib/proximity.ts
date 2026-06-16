@@ -1,3 +1,4 @@
+// Finds farm locations from OTHER declarations that sit within PROXIMITY_METERS of this declaration's sites.
 import { prisma } from "./prisma";
 import { distanceMeters } from "./geo";
 import { PROXIMITY_METERS } from "./constants";

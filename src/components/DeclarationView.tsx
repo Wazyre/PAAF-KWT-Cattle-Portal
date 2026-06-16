@@ -1,3 +1,4 @@
+// Read-only renderer for a declaration's animal groups and farm locations (shared by audit screen and print page).
 import { gatheringPointLabel, animalTypeLabel } from "@/lib/constants";
 
 interface FarmLocation {
@@ -25,6 +26,7 @@ export interface DeclarationData {
   animalGroups: AnimalGroup[];
 }
 
+// Read-only renderer for one declaration: identity row plus a card per animal group with each farm location's counts.
 export default function DeclarationView({
   decl
 }: {
@@ -127,6 +129,7 @@ export default function DeclarationView({
   );
 }
 
+// Small label/value pair used to render identity fields and other single-line entries.
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>

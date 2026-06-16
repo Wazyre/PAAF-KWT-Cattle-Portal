@@ -1,8 +1,11 @@
+// Coordinate parsing from pasted strings / Maps URLs, short-link expansion, and Haversine distance.
+
 export interface LatLng {
   lat: number;
   lng: number;
 }
 
+// Reject NaN/Infinity and out-of-range Earth coordinates.
 function valid(lat: number, lng: number): boolean {
   return (
     Number.isFinite(lat) &&
@@ -12,6 +15,7 @@ function valid(lat: number, lng: number): boolean {
   );
 }
 
+// Run one regex against the string and return the first valid lat/lng capture, or null.
 function firstMatch(s: string, re: RegExp): LatLng | null {
   const m = s.match(re);
   if (!m) return null;
@@ -61,6 +65,7 @@ export function parseLatLng(input: string): LatLng | null {
   return null;
 }
 
+// True if the input is a Google Maps short-link that must be expanded server-side before parsing.
 export function isShortLink(input: string): boolean {
   return /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(input);
 }

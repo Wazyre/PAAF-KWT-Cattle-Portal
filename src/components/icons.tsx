@@ -1,3 +1,4 @@
+// Inline SVG icon components used across the portal (clipboard, calendar, clock, check, warning).
 import type { SVGProps } from "react";
 
 const base = {

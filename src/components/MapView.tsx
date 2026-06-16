@@ -1,4 +1,5 @@
 "use client";
+// Leaflet map preview for a single coordinate (dynamic-imported with ssr:false because Leaflet needs window).
 
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import L from "leaflet";
@@ -16,6 +17,7 @@ const icon = L.icon({
   iconAnchor: [12, 41]
 });
 
+// Leaflet map preview centred on the given coordinate with a single marker; client-only because Leaflet needs window.
 export default function MapView({
   lat,
   lng,

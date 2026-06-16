@@ -1,4 +1,5 @@
 "use client";
+// Triggers the browser print dialog (used on the audit print page). Hidden in print output via .no-print.
 
 export default function PrintButton() {
   return (
