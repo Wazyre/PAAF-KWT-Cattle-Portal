@@ -13,9 +13,6 @@ export interface AuditState {
   error?: string;
 }
 
-export interface ChipFlagsState {
-  error?: string;
-}
 
 const VS = new Set<string>(VIOLATION_STATUSES.map((v) => v.value));
 const DR = new Set<string>(DIFFERENCE_REASONS.map((d) => d.value));
@@ -220,6 +217,11 @@ export async function submitAudit(
         ? parseInt(manualCountRaw, 10)
         : null;
 
+      const doesntBelongRaw = String(formData.get(`doesntBelongManual_${p.animalType}_${p.siteIndex}`) ?? "").trim();
+      const doesntBelongCount = doesntBelongRaw !== "" && /^\d+$/.test(doesntBelongRaw)
+        ? parseInt(doesntBelongRaw, 10)
+        : null;
+
       const result = await tx.auditAnimalResult.upsert({
         where: {
           auditId_animalType_siteIndex: {
@@ -234,7 +236,8 @@ export async function submitAudit(
           locationLink: p.locationLink,
           latitude: p.lat,
           longitude: p.lng,
-          manualCount
+          manualCount,
+          doesntBelongCount
         },
         create: {
           auditId: audit.id,
@@ -245,7 +248,8 @@ export async function submitAudit(
           locationLink: p.locationLink,
           latitude: p.lat,
           longitude: p.lng,
-          manualCount
+          manualCount,
+          doesntBelongCount
         }
       });
 
@@ -279,51 +283,4 @@ export async function submitAudit(
     ? `${safeReturnTo}?saved=1&animalType=${encodeURIComponent(animalTypeFilter)}`
     : `${safeReturnTo}?saved=1`;
   redirect(redirectUrl);
-}
-
-// Persist the supervisor's "doesn't belong" toggles for an audit result's chip readings.
-export async function updateChipFlags(
-  _prev: ChipFlagsState,
-  formData: FormData
-): Promise<ChipFlagsState> {
-  const resultId = Number(formData.get("resultId"));
-  if (!Number.isInteger(resultId)) return { error: "معرّف النتيجة غير صالح." };
-
-  const flagsPayloadRaw = String(formData.get("flagsPayload") ?? "");
-  type FlagEntry = { id: number; doesntBelong: boolean };
-  let flags: FlagEntry[];
-  try {
-    flags = JSON.parse(flagsPayloadRaw);
-    if (!Array.isArray(flags)) flags = [];
-  } catch {
-    flags = [];
-  }
-
-  const result = await prisma.auditAnimalResult.findUnique({
-    where: { id: resultId },
-    include: { audit: { select: { declarationId: true } } }
-  });
-  if (!result) return { error: "النتيجة غير موجودة." };
-
-  // Validate all chip IDs belong to this result before updating
-  const validIds = new Set(
-    (await prisma.chipReading.findMany({
-      where: { animalResultId: resultId },
-      select: { id: true }
-    })).map((r) => r.id)
-  );
-
-  await prisma.$transaction(
-    flags
-      .filter((f) => validIds.has(f.id))
-      .map((f) =>
-        prisma.chipReading.update({
-          where: { id: f.id },
-          data: { flaggedDoesntBelong: f.doesntBelong }
-        })
-      )
-  );
-
-  revalidatePath(`/supervisor/${result.audit.declarationId}`);
-  return {};
 }

@@ -3,7 +3,6 @@
 
 import { useState, useRef } from "react";
 import { useFormStatus } from "react-dom";
-import { DIFFERENCE_REASONS } from "@/lib/constants";
 import { IconAlertTriangle } from "@/components/icons";
 import { submitAudit } from "./actions";
 import { processChipFile } from "@/lib/chips";
@@ -22,6 +21,7 @@ function SubmitButton() {
 export interface SiteEntry {
   siteIndex: number;
   gatheringPointLabel: string;
+  declaredCount: number;
 }
 
 export interface AnimalTypeEntry {
@@ -38,7 +38,8 @@ interface AnimalTypeSiteResult {
   manualCount: number | null;
   nonStarCount: number;
   multipleChipsCount: number;
-  doesntBelongCount?: number;
+  proximityCount: number;
+  doesntBelongCount: number;
 }
 
 type ChipPreviewState = {
@@ -47,20 +48,14 @@ type ChipPreviewState = {
   fileCount: number;
 };
 
-type ViolationCounts = {
-  difference: number | null;
-  notChipped: number | null;
-  multipleChips: number | null;
-};
-
-// Format a UTC epoch-ms timestamp as "DD/MM/YYYY HH:mm:ss" for the chip-reading preview table.
+// Format a UTC epoch-ms timestamp as "DD/MM/YYYY HH:mm:ss".
 function fmtMs(ms: number): string {
   const d = new Date(ms);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
-// Count contiguous runs of star-flagged readings (sorted by time), the live-preview equivalent of computeMultipleChipsCount.
+// Count contiguous runs of star-flagged readings (sorted by time).
 function countStarGroups(readings: { flaggedSymbol: boolean; sortKey: number }[]): number {
   const sorted = [...readings].sort((a, b) => a.sortKey - b.sortKey);
   let count = 0;
@@ -72,7 +67,13 @@ function countStarGroups(readings: { flaggedSymbol: boolean; sortKey: number }[]
   return count;
 }
 
-// Per-site audit form: location link, manual count, chip-file upload with parsed preview, and auto-derived violation reasons.
+type ViolationCounts = {
+  declaredManualDiff: number | null;
+  scannedManualDiff: number | null;
+  multipleChips: number | null;
+  proximity: number | null;
+};
+
 export default function AuditForm({
   declarationId,
   animalTypes,
@@ -104,25 +105,18 @@ export default function AuditForm({
     return init;
   });
 
-  const [checkedReasons, setCheckedReasons] = useState<Record<string, Set<string>>>(() => {
-    const init: Record<string, Set<string>> = {};
+  const [doesntBelongManuals, setDoesntBelongManuals] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
     for (const { type, sites } of animalTypes) {
       for (const { siteIndex } of sites) {
         const saved = defaults?.animalResults[type]?.[siteIndex];
-        init[`${type}_${siteIndex}`] = new Set(saved?.differenceReasons ?? []);
+        init[`${type}_${siteIndex}`] = saved?.doesntBelongCount != null && saved.doesntBelongCount > 0
+          ? String(saved.doesntBelongCount)
+          : "";
       }
     }
     return init;
   });
-
-  function toggleReason(type: string, siteIndex: number, reason: string, checked: boolean) {
-    setCheckedReasons(prev => {
-      const key = `${type}_${siteIndex}`;
-      const next = new Set(prev[key] ?? []);
-      if (checked) next.add(reason); else next.delete(reason);
-      return { ...prev, [key]: next };
-    });
-  }
 
   async function handleChipFiles(key: string, files: FileList | null) {
     if (!files || files.length === 0) {
@@ -138,31 +132,34 @@ export default function AuditForm({
     }));
   }
 
-  function getViolationCounts(key: string, type: string, siteIndex: number): ViolationCounts {
+  function getViolationCounts(key: string, type: string, siteIndex: number, declaredCount: number): ViolationCounts {
     const mc = parseInt(manualCounts[key] ?? "");
-    if (isNaN(mc)) return { difference: null, notChipped: null, multipleChips: null };
+    if (isNaN(mc)) return { declaredManualDiff: null, scannedManualDiff: null, multipleChips: null, proximity: null };
+
+    const declaredManualDiff = mc - declaredCount;
 
     const preview = chipPreviews[key];
     if (preview) {
       const readings = preview.readings.map(r => ({ flaggedSymbol: r.flaggedSymbol, sortKey: r.ms }));
-      const nonStarCount = readings.filter(r => !r.flaggedSymbol).length;
       return {
-        difference: mc - preview.readings.length,
-        notChipped: Math.max(0, mc - nonStarCount),
-        multipleChips: countStarGroups(readings)
+        declaredManualDiff,
+        scannedManualDiff: mc - preview.readings.length,
+        multipleChips: countStarGroups(readings),
+        proximity: preview.readings.filter(r => r.flaggedProximity).length
       };
     }
 
     const saved = defaults?.animalResults[type]?.[siteIndex];
     if (saved && saved.readingCount > 0) {
       return {
-        difference: mc - saved.readingCount,
-        notChipped: Math.max(0, mc - saved.nonStarCount),
-        multipleChips: saved.multipleChipsCount
+        declaredManualDiff,
+        scannedManualDiff: mc - saved.readingCount,
+        multipleChips: saved.multipleChipsCount,
+        proximity: saved.proximityCount
       };
     }
 
-    return { difference: null, notChipped: null, multipleChips: null };
+    return { declaredManualDiff, scannedManualDiff: null, multipleChips: null, proximity: null };
   }
 
   function validate(fd: FormData, forPrint = false): Record<string, string> {
@@ -233,11 +230,19 @@ export default function AuditForm({
           <div key={type} className="space-y-3">
             <h3 className="font-bold text-gov-dark border-b border-gray-200 pb-2">{label}</h3>
 
-            {sites.map(({ siteIndex, gatheringPointLabel }) => {
+            {sites.map(({ siteIndex, gatheringPointLabel, declaredCount }) => {
               const saved = defaults?.animalResults[type]?.[siteIndex];
               const previewKey = `${type}_${siteIndex}`;
               const preview = chipPreviews[previewKey];
-              const counts = getViolationCounts(previewKey, type, siteIndex);
+              const counts = getViolationCounts(previewKey, type, siteIndex, declaredCount);
+              const doesntBelongInt = parseInt(doesntBelongManuals[previewKey] ?? "") || 0;
+
+              const hasViolation =
+                (counts.declaredManualDiff !== null && counts.declaredManualDiff !== 0) ||
+                (counts.scannedManualDiff !== null && counts.scannedManualDiff !== 0) ||
+                (counts.multipleChips !== null && counts.multipleChips > 0) ||
+                (counts.proximity !== null && counts.proximity > 0) ||
+                doesntBelongInt > 0;
 
               return (
                 <div
@@ -249,6 +254,28 @@ export default function AuditForm({
                   </h4>
                   {fieldErrors[`${previewKey}_site`] && (
                     <p className="text-sm text-red-600">{fieldErrors[`${previewKey}_site`]}</p>
+                  )}
+
+                  {/* Auto-computed hidden inputs for violation status and reasons */}
+                  <input
+                    type="hidden"
+                    name={`violationStatus_${type}_${siteIndex}`}
+                    value={hasViolation ? "VIOLATION" : "NONE"}
+                  />
+                  {counts.declaredManualDiff !== null && counts.declaredManualDiff !== 0 && (
+                    <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="DECLARED_MANUAL_MISMATCH" />
+                  )}
+                  {counts.scannedManualDiff !== null && counts.scannedManualDiff !== 0 && (
+                    <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="NOT_CHIPPED" />
+                  )}
+                  {counts.multipleChips !== null && counts.multipleChips > 0 && (
+                    <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="MULTIPLE_CHIPS" />
+                  )}
+                  {counts.proximity !== null && counts.proximity > 0 && (
+                    <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="SCANNED_ELSEWHERE" />
+                  )}
+                  {doesntBelongInt > 0 && (
+                    <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="CHIP_DOESNT_BELONG" />
                   )}
 
                   {/* Geographic location */}
@@ -367,97 +394,55 @@ export default function AuditForm({
                     )}
                   </div>
 
-                  {/* Difference reasons */}
+                  {/* Violation summary */}
                   <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="field-label">
-                        أسباب الاختلاف في عدد {label} (اختر كل ما ينطبق)
-                      </span>
-                      {/* {counts.difference !== null && (
-                        <span className={`text-sm font-semibold ${counts.difference < 0 ? "text-green-700" : counts.difference > 0 ? "text-red-600" : "text-gray-600"}`}>
-                          الفرق: {counts.difference > 0 ? `+${counts.difference}` : counts.difference}
+                    <div className="field-label mb-2">ملخص المخالفات المحتسبة</div>
+                    <div className="rounded-lg border border-gray-200 divide-y divide-gray-200 text-sm">
+                      <ViolationRow
+                        label="الفرق بين العدد المُصرَّح به والعدد اليدوي"
+                        hint={`المُصرَّح به: ${declaredCount}`}
+                        value={counts.declaredManualDiff}
+                        formatValue={(v) => v === 0 ? "لا يوجد" : `${v > 0 ? "+" : ""}${v}`}
+                        isViolation={counts.declaredManualDiff !== null && counts.declaredManualDiff !== 0}
+                      />
+                      <ViolationRow
+                        label="الفرق بين الشرائح المقروءة والعدد اليدوي"
+                        value={counts.scannedManualDiff}
+                        formatValue={(v) => v === 0 ? "لا يوجد" : `${v > 0 ? "+" : ""}${v}`}
+                        isViolation={counts.scannedManualDiff !== null && counts.scannedManualDiff !== 0}
+                      />
+                      <ViolationRow
+                        label="حيوانات تحمل أكثر من شريحة"
+                        value={counts.multipleChips}
+                        isViolation={counts.multipleChips !== null && counts.multipleChips > 0}
+                      />
+                      <ViolationRow
+                        label="شرائح مقروءة في مواقع أخرى"
+                        value={counts.proximity}
+                        isViolation={counts.proximity !== null && counts.proximity > 0}
+                      />
+                      {/* doesntBelong: manual input */}
+                      <div className="flex items-center justify-between px-3 py-2 gap-3">
+                        <span className={doesntBelongInt > 0 ? "font-semibold text-red-700" : "text-gray-700"}>
+                          شرائح غير مسجلة باسم المربي
                         </span>
-                      )} */}
+                        <input
+                          type="number"
+                          min={0}
+                          name={`doesntBelongManual_${type}_${siteIndex}`}
+                          className="w-20 rounded border border-gray-300 px-2 py-1 text-center text-sm"
+                          value={doesntBelongManuals[previewKey] ?? ""}
+                          onChange={(e) =>
+                            setDoesntBelongManuals(prev => ({ ...prev, [previewKey]: e.target.value }))
+                          }
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {DIFFERENCE_REASONS.map((d) => {
-                        const savedDoesntBelongCount = saved?.doesntBelongCount ?? null;
 
-                        const autoState: boolean | null =
-                          d.value === "NOT_CHIPPED"
-                            ? counts.notChipped !== null ? counts.notChipped > 0 : null
-                            : d.value === "MULTIPLE_CHIPS"
-                            ? counts.multipleChips !== null ? counts.multipleChips > 0 : null
-                            : d.value === "CHIP_DOESNT_BELONG"
-                            ? savedDoesntBelongCount !== null ? savedDoesntBelongCount > 0 : null
-                            : null;
-
-                        const isAuto = autoState !== null;
-                        const effectiveChecked = isAuto
-                          ? autoState
-                          : (checkedReasons[previewKey]?.has(d.value) ?? false);
-
-                        const countBadge: number | null =
-                          d.value === "NOT_CHIPPED" ? counts.notChipped
-                          : d.value === "MULTIPLE_CHIPS" ? counts.multipleChips
-                          : d.value === "CHIP_DOESNT_BELONG" ? savedDoesntBelongCount
-                          : null;
-
-                        return (
-                          <label
-                            key={d.value}
-                            className={`flex items-center gap-2 text-sm ${isAuto ? "cursor-default" : "cursor-pointer"}`}
-                          >
-                            {isAuto && effectiveChecked && (
-                              <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value={d.value} />
-                            )}
-                            <input
-                              type="checkbox"
-                              {...(!isAuto && { name: `differenceReason_${type}_${siteIndex}`, value: d.value })}
-                              checked={effectiveChecked}
-                              disabled={isAuto}
-                              onChange={isAuto ? undefined : (e) => toggleReason(type, siteIndex, d.value, e.target.checked)}
-                              className={`h-4 w-4 rounded border-gray-300 accent-gov ${isAuto ? "opacity-70" : ""}`}
-                            />
-                            <span className={isAuto ? "text-gray-600" : ""}>{d.label}</span>
-                            {countBadge !== null && (
-                              <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${effectiveChecked ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-700"}`}>
-                                {countBadge}
-                              </span>
-                            )}
-                            {isAuto && (
-                              <span className="text-xs text-gray-400">(تلقائي)</span>
-                            )}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {(() => {
-                      const savedDoesntBelongCount = saved?.doesntBelongCount ?? null;
-                      const hasViolation = DIFFERENCE_REASONS.some((d) => {
-                        const autoState: boolean | null =
-                          d.value === "NOT_CHIPPED"
-                            ? counts.notChipped !== null ? counts.notChipped > 0 : null
-                            : d.value === "MULTIPLE_CHIPS"
-                            ? counts.multipleChips !== null ? counts.multipleChips > 0 : null
-                            : d.value === "CHIP_DOESNT_BELONG"
-                            ? savedDoesntBelongCount !== null ? savedDoesntBelongCount > 0 : null
-                            : null;
-                        return autoState !== null ? autoState : (checkedReasons[previewKey]?.has(d.value) ?? false);
-                      });
-                      return (
-                        <>
-                          <input
-                            type="hidden"
-                            name={`violationStatus_${type}_${siteIndex}`}
-                            value={hasViolation ? "VIOLATION" : "NONE"}
-                          />
-                          <p className={`mt-2 text-sm font-semibold ${hasViolation ? "text-red-600" : "text-green-700"}`}>
-                            حالة المخالفة: {hasViolation ? "توجد مخالفة" : "لا توجد مخالفة"}
-                          </p>
-                        </>
-                      );
-                    })()}
+                    <p className={`mt-2 text-sm font-semibold ${hasViolation ? "text-red-600" : "text-green-700"}`}>
+                      حالة المخالفة: {hasViolation ? "توجد مخالفة" : "لا توجد مخالفة"}
+                    </p>
                   </div>
                 </div>
               );
@@ -486,5 +471,36 @@ export default function AuditForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// Single row in the violation summary table.
+function ViolationRow({
+  label,
+  hint,
+  value,
+  isViolation,
+  formatValue
+}: {
+  label: string;
+  hint?: string;
+  value: number | null;
+  isViolation: boolean;
+  formatValue?: (v: number) => string;
+}) {
+  const display = value === null
+    ? <span className="text-gray-400 text-xs">يحتاج عدد يدوي</span>
+    : <span className={`font-semibold tabular-nums ${isViolation ? "text-red-700" : "text-green-700"}`}>
+        {formatValue ? formatValue(value) : String(value)}
+      </span>;
+
+  return (
+    <div className="flex items-center justify-between px-3 py-2 gap-3">
+      <div>
+        <span className={isViolation ? "font-semibold text-red-700" : "text-gray-700"}>{label}</span>
+        {hint && <span className="mr-2 text-xs text-gray-400">{hint}</span>}
+      </div>
+      {display}
+    </div>
   );
 }

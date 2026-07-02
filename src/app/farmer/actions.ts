@@ -29,6 +29,8 @@ export async function submitDeclaration(
 ): Promise<DeclarationState> {
   const civilId = String(formData.get("civilId") ?? "").trim();
   const mobile = String(formData.get("mobile") ?? "").trim();
+  const mobile2Raw = String(formData.get("mobile2") ?? "").trim();
+  const mobile2 = mobile2Raw || null;
   const payloadRaw = String(formData.get("payload") ?? "");
 
   const identity = await resolveIdentity(civilId);
@@ -36,6 +38,9 @@ export async function submitDeclaration(
     return { error: "تعذّر التحقق من الهوية. الرقم المدني غير صالح." };
   }
   if (!isValidKuwaitMobile(mobile)) {
+    return { error: KUWAIT_MOBILE_ERROR };
+  }
+  if (mobile2 && !isValidKuwaitMobile(mobile2)) {
     return { error: KUWAIT_MOBILE_ERROR };
   }
 
@@ -90,7 +95,7 @@ export async function submitDeclaration(
       const lng = typeof loc.lng === "number" ? loc.lng : null;
       if (lat === null || lng === null) {
         return {
-          error: `النوع ${i + 1} / الموقع ${j + 1}: يجب تحديد الموقع الجغرافي بدقة (اضغط "رفع الموقع").`
+          error: `النوع ${i + 1} / الموقع ${j + 1}: يجب تحديد الموقع الجغرافي (الصق رابط الموقع لتحديد إحداثياته).`
         };
       }
       const chipped = intOrNull(loc.chippedCount);
@@ -159,6 +164,7 @@ export async function submitDeclaration(
       where: { id: existing.id },
       data: {
         mobile,
+        mobile2,
         animalGroups: {
           create: groups.map((g) => ({
             animalType: g.animalType,
@@ -175,6 +181,7 @@ export async function submitDeclaration(
         civilId: identity.civilId,
         name: identity.name,
         mobile,
+        mobile2,
         animalGroups: {
           create: groups.map((g) => ({
             animalType: g.animalType,

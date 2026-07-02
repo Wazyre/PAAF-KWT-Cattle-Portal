@@ -122,7 +122,8 @@ export default async function AuditPageContent({
         label: animalTypeLabel(type),
         sites: group.locations.map((loc, siteIndex) => ({
           siteIndex,
-          gatheringPointLabel: gpLabel(loc.gatheringPoint)
+          gatheringPointLabel: gpLabel(loc.gatheringPoint),
+          declaredCount: loc.chippedCount
         }))
       };
     });
@@ -141,6 +142,7 @@ export default async function AuditPageContent({
                 if (!result) return undefined;
                 const nonStarCount = result.readings.filter((r) => !r.flaggedSymbol).length;
                 const multipleChipsCount = computeMultipleChipsCount(result.readings);
+                const proximityCount = result.readings.filter((r) => r.flaggedProximity).length;
                 return {
                   violationStatus: result.violationStatus,
                   differenceReasons: result.differenceReasons as string[],
@@ -149,7 +151,8 @@ export default async function AuditPageContent({
                   manualCount: result.manualCount ?? null,
                   nonStarCount,
                   multipleChipsCount,
-                  doesntBelongCount: result.readings.filter(r => r.flaggedDoesntBelong).length
+                  proximityCount,
+                  doesntBelongCount: result.doesntBelongCount ?? 0
                 };
               })
             ];

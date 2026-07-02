@@ -22,6 +22,7 @@ export interface DeclarationData {
   name: string;
   civilId: string;
   mobile: string;
+  mobile2?: string | null;
   createdAt: Date;
   animalGroups: AnimalGroup[];
 }
@@ -47,6 +48,7 @@ export default function DeclarationView({
         <Field label="الاسم" value={decl.name} />
         <Field label="الرقم المدني" value={decl.civilId} />
         <Field label="رقم الهاتف" value={decl.mobile} />
+        {decl.mobile2 && <Field label="رقم هاتف إضافي" value={decl.mobile2} />}
       </div>
 
       <div className="space-y-3">
@@ -98,7 +100,7 @@ export default function DeclarationView({
                           الإناث
                         </th>
                         <th className="border border-gray-300 px-2 py-1">
-                          العمال / الرعاة
+                          الرعاة
                         </th>
                       </tr>
                     </thead>

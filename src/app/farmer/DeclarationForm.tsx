@@ -1,7 +1,6 @@
 "use client";
-// Multi-section declaration form: per animal type, add/remove farm locations with map preview and live validation.
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import dynamic from "next/dynamic";
 import { GATHERING_POINTS, ANIMAL_TYPES, MIN_SITE_DISTANCE_METERS } from "@/lib/constants";
@@ -28,10 +27,10 @@ interface InitialAnimalGroup {
 
 interface InitialData {
   mobile: string;
+  mobile2?: string | null;
   animalGroups: InitialAnimalGroup[];
 }
 
-// Submit button bound to the form action, showing a pending label via useFormStatus.
 function SubmitButton({ isEditing }: { isEditing: boolean }) {
   const { pending } = useFormStatus();
   return (
@@ -69,12 +68,10 @@ interface AnimalTypeSection {
   locations: LocationRow[];
 }
 
-// Random short id used to key location rows in React lists.
 function genId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Build a blank LocationRow used when the user adds a new farm site.
 function emptyLocation(): LocationRow {
   return {
     id: genId(),
@@ -89,7 +86,6 @@ function emptyLocation(): LocationRow {
   };
 }
 
-// Hydrate form state from an existing declaration, or return one empty section per animal type.
 function initSections(initialData?: InitialData | null): AnimalTypeSection[] {
   return ANIMAL_TYPES.map((at) => {
     const group = initialData?.animalGroups.find((g) => g.animalType === at.value);
@@ -111,7 +107,6 @@ function initSections(initialData?: InitialData | null): AnimalTypeSection[] {
   });
 }
 
-// Parse a numeric input string: empty returns null, invalid returns NaN, valid returns the int.
 function intStr(v: string): number | null {
   const s = v.trim();
   if (s === "") return null;
@@ -119,7 +114,6 @@ function intStr(v: string): number | null {
   return Number.isInteger(n) && n >= 0 ? n : NaN;
 }
 
-// Stateful declaration form: per animal type, add or remove farm sites with map preview, validation, and submit.
 export default function DeclarationForm({
   civilId,
   name,
@@ -136,13 +130,16 @@ export default function DeclarationForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState("");
+  const resolveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  function validateAll(mobile: string, pledged: boolean): { fieldErrors: Record<string, string>; formErrors: string[] } {
+  function validateAll(mobile: string, mobile2: string, pledged: boolean): { fieldErrors: Record<string, string>; formErrors: string[] } {
     const fieldErrs: Record<string, string> = {};
     const formErrs: string[] = [];
 
     if (!mobile.trim()) fieldErrs.mobile = "يرجى إدخال رقم الهاتف الشخصي.";
     else if (!isValidKuwaitMobile(mobile)) fieldErrs.mobile = KUWAIT_MOBILE_ERROR;
+
+    if (mobile2.trim() && !isValidKuwaitMobile(mobile2)) fieldErrs.mobile2 = KUWAIT_MOBILE_ERROR;
 
     if (!pledged) fieldErrs.pledge = "يجب الموافقة على الإقرار قبل الإرسال.";
 
@@ -171,15 +168,14 @@ export default function DeclarationForm({
 
         const tenders = intStr(loc.numTenders);
         if (tenders === null)
-          fieldErrs[`tenders_${ai}_${li}`] = "يرجى إدخال عدد العمال / الرعاة.";
+          fieldErrs[`tenders_${ai}_${li}`] = "يرجى إدخال عدد الرعاة.";
         else if (Number.isNaN(tenders))
-          fieldErrs[`tenders_${ai}_${li}`] = "عدد العمال/الرعاة غير صحيح.";
+          fieldErrs[`tenders_${ai}_${li}`] = "عدد الرعاة غير صحيح.";
 
         if (loc.lat === null || loc.lng === null)
-          fieldErrs[`geo_${ai}_${li}`] = "يرجى تحديد الموقع الجغرافي بدقة (اضغط \"رفع الموقع\").";
+          fieldErrs[`geo_${ai}_${li}`] = "يرجى الصق رابط الموقع لتحديد إحداثياته.";
       });
 
-      // Same-type proximity check
       for (let i = 0; i < s.locations.length; i++) {
         for (let j = i + 1; j < s.locations.length; j++) {
           const a = s.locations[i];
@@ -201,8 +197,9 @@ export default function DeclarationForm({
 
   async function action(fd: FormData) {
     const mobile = String(fd.get("mobile") ?? "");
+    const mobile2 = String(fd.get("mobile2") ?? "");
     const pledged = fd.get("pledge") === "on";
-    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile, pledged);
+    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile, mobile2, pledged);
     setFieldErrors(fieldErrs);
     setFormErrors(formErrs);
     setServerError("");
@@ -270,6 +267,20 @@ export default function DeclarationForm({
     }
   }
 
+  function onLocationLinkChange(ai: number, li: number, value: string) {
+    update((d) => {
+      d[ai].locations[li].locationLink = value;
+      d[ai].locations[li].geoStatus = "";
+      d[ai].locations[li].lat = null;
+      d[ai].locations[li].lng = null;
+    });
+    const key = `${ai}_${li}`;
+    clearTimeout(resolveTimers.current[key]);
+    if (value.trim()) {
+      resolveTimers.current[key] = setTimeout(() => resolveLocation(ai, li), 700);
+    }
+  }
+
   const payload = JSON.stringify(
     sections
       .filter((s) => s.locations.length > 0)
@@ -325,21 +336,39 @@ export default function DeclarationForm({
             <input className="field-input" value={civilId} readOnly />
           </div>
         </div>
-        <div>
-          <label className="field-label" htmlFor="mobile">
-            رقم الهاتف الشخصي لمربّي المواشي
-          </label>
-          <input
-            id="mobile"
-            name="mobile"
-            inputMode="numeric"
-            className="field-input"
-            placeholder="مثال: 9XXXXXXX"
-            defaultValue={initialData?.mobile ?? ""}
-          />
-          {fieldErrors.mobile && (
-            <p className="mt-1 text-sm text-red-600">{fieldErrors.mobile}</p>
-          )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="field-label" htmlFor="mobile">
+              رقم الهاتف الشخصي لمربّي المواشي
+            </label>
+            <input
+              id="mobile"
+              name="mobile"
+              inputMode="numeric"
+              className="field-input"
+              placeholder="مثال: 9XXXXXXX"
+              defaultValue={initialData?.mobile ?? ""}
+            />
+            {fieldErrors.mobile && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.mobile}</p>
+            )}
+          </div>
+          <div>
+            <label className="field-label" htmlFor="mobile2">
+              رقم هاتف إضافي (اختياري)
+            </label>
+            <input
+              id="mobile2"
+              name="mobile2"
+              inputMode="numeric"
+              className="field-input"
+              placeholder="مثال: 9XXXXXXX"
+              defaultValue={initialData?.mobile2 ?? ""}
+            />
+            {fieldErrors.mobile2 && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.mobile2}</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -436,7 +465,7 @@ export default function DeclarationForm({
                     )}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="field-label">عدد العمال / الرعاة</label>
+                    <label className="field-label">الرعاة المسجلين على الإقامة</label>
                     <input
                       type="number"
                       min={0}
@@ -456,23 +485,12 @@ export default function DeclarationForm({
                   <label className="field-label">
                     الموقع الجغرافي (الصق رابط الموقع المشارَك)
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      className="field-input"
-                      placeholder="https://maps.app.goo.gl/…  أو  29.1234, 47.9876"
-                      value={loc.locationLink}
-                      onChange={(e) =>
-                        update((d) => { d[ai].locations[li].locationLink = e.target.value; })
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="btn-secondary shrink-0"
-                      onClick={() => resolveLocation(ai, li)}
-                    >
-                      رفع الموقع
-                    </button>
-                  </div>
+                  <input
+                    className="field-input"
+                    placeholder="https://maps.app.goo.gl/…  أو  29.1234, 47.9876"
+                    value={loc.locationLink}
+                    onChange={(e) => onLocationLinkChange(ai, li, e.target.value)}
+                  />
                   <p className="mt-1 text-sm text-gray-500">
                     يجب أن يكون الموقع المُدخَل ضمن نطاق 5 أمتار من الموقع الفعلي للحظيرة.
                   </p>
@@ -505,7 +523,9 @@ export default function DeclarationForm({
               onClick={() => addLocation(ai)}
               className="w-full rounded-lg border-2 border-dashed border-gov/40 py-3 text-sm font-semibold text-gov transition hover:border-gov hover:bg-gov-light"
             >
-              + أضف موقع
+              {section.locations.length === 0
+                ? "+ أضف البيانات"
+                : "+ أضف بيانات موقع إضافي إن وجد"}
             </button>
           </div>
         );
@@ -521,7 +541,6 @@ export default function DeclarationForm({
               className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 accent-gov"
             />
             <span className="text-sm text-gray-700 leading-relaxed">
-              {/* Placeholder final wording to be supplied */}
               أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
             </span>
           </label>

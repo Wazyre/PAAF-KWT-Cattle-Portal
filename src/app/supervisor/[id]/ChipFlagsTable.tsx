@@ -1,9 +1,4 @@
 "use client";
-// Per-reading flag table letting the supervisor mark chips as "not registered to this farmer".
-
-import { useState } from "react";
-import { useFormStatus } from "react-dom";
-import { updateChipFlags } from "./actions";
 
 export interface ChipReadingRow {
   id: number;
@@ -15,19 +10,8 @@ export interface ChipReadingRow {
   flaggedDoesntBelong: boolean;
 }
 
-// Save button for the per-reading flags table; reflects pending state via useFormStatus.
-function SaveButton() {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className="btn-primary" disabled={pending}>
-      {pending ? "جارٍ الحفظ…" : "حفظ التصنيف"}
-    </button>
-  );
-}
-
-// Table of saved chip readings, letting the supervisor flag each chip as "not registered to this farmer".
+// Read-only table of saved chip readings with auto-computed flag notes per row.
 export default function ChipFlagsTable({
-  resultId,
   readings,
   label
 }: {
@@ -35,19 +19,7 @@ export default function ChipFlagsTable({
   readings: ChipReadingRow[];
   label: string;
 }) {
-  type FlagMap = Map<number, { db: boolean }>;
-
-  const [flags, setFlags] = useState<FlagMap>(() => {
-    const m: FlagMap = new Map();
-    for (const r of readings) {
-      m.set(r.id, { db: r.flaggedDoesntBelong });
-    }
-    return m;
-  });
-  const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState("");
-
-  // Compute, for each starred reading, the rawChip of the last non-starred reading above it
+  // Compute the "original" chip for each star-flagged row (the last non-star chip before it).
   const originalChipMap = new Map<number, string>();
   let lastNonStar: string | null = null;
   for (const r of readings) {
@@ -58,40 +30,11 @@ export default function ChipFlagsTable({
     }
   }
 
-  const flagsPayload = JSON.stringify(
-    readings.map((r) => ({
-      id: r.id,
-      doesntBelong: flags.get(r.id)?.db ?? false
-    }))
-  );
-
-  async function action(fd: FormData) {
-    setSaveError("");
-    const res = await updateChipFlags({}, fd);
-    if (res?.error) {
-      setSaveError(res.error);
-    } else {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    }
-  }
-
-  function toggleDb(id: number, checked: boolean) {
-    setFlags((prev) => {
-      const next = new Map(prev);
-      const f = next.get(id) ?? { db: false };
-      next.set(id, { ...f, db: checked });
-      return next;
-    });
-  }
-
   return (
-    <form action={action} className="space-y-2">
+    <div className="space-y-2">
       <h3 className="font-semibold text-gov-dark">
         {label} ({readings.length} قراءة)
       </h3>
-      <input type="hidden" name="resultId" value={resultId} />
-      <input type="hidden" name="flagsPayload" value={flagsPayload} />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -99,19 +42,18 @@ export default function ChipFlagsTable({
               <th className="border border-gray-300 px-2 py-1">#</th>
               <th className="border border-gray-300 px-2 py-1">وقت القراءة</th>
               <th className="border border-gray-300 px-2 py-1">رقم الشريحة</th>
-              <th className="border border-gray-300 px-2 py-1">تنبيهات تلقائية</th>
-              <th className="border border-gray-300 px-2 py-1 text-xs leading-tight">
-                ليست باسم المربي
-              </th>
+              <th className="border border-gray-300 px-2 py-1">ملاحظات</th>
             </tr>
           </thead>
           <tbody>
             {readings.map((r, i) => {
-              const db = flags.get(r.id)?.db ?? false;
-              const anyFlag = r.flaggedSymbol || r.flaggedProximity || db;
-              const autoNotes = [
+              const anyFlag =
+                r.flaggedSymbol || r.flaggedProximity || r.flaggedMultipleChips || r.flaggedDoesntBelong;
+              const notes = [
                 r.flaggedSymbol ? "رمز/نجمة" : "",
-                r.flaggedProximity ? "تقارب زمني ≤ 5ث" : ""
+                r.flaggedProximity ? "تقارب زمني ≤ 5ث" : "",
+                r.flaggedMultipleChips ? "أكثر من شريحة" : "",
+                r.flaggedDoesntBelong ? "ليست باسم المربي" : ""
               ]
                 .filter(Boolean)
                 .join(" + ");
@@ -129,15 +71,7 @@ export default function ChipFlagsTable({
                     )}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs">
-                    {autoNotes || "—"}
-                  </td>
-                  <td className="border border-gray-300 px-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={db}
-                      onChange={(e) => toggleDb(r.id, e.target.checked)}
-                      className="h-4 w-4 accent-gov"
-                    />
+                    {notes || "—"}
                   </td>
                 </tr>
               );
@@ -145,15 +79,6 @@ export default function ChipFlagsTable({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center gap-3 pt-1">
-        <SaveButton />
-        {saved && (
-          <span className="text-sm font-semibold text-green-700">تم الحفظ ✓</span>
-        )}
-        {saveError && (
-          <span className="text-sm font-semibold text-red-600">{saveError}</span>
-        )}
-      </div>
-    </form>
+    </div>
   );
 }
