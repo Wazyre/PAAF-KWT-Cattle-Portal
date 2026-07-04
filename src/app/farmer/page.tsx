@@ -3,6 +3,7 @@ import Link from "next/link";
 import { resolveIdentity } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
 import DeclarationForm from "./DeclarationForm";
+import LegalGate from "./LegalGate";
 
 export const dynamic = "force-dynamic";
 
@@ -68,31 +69,49 @@ export default async function FarmerPage({
     include: { animalGroups: { include: { locations: true } } }
   });
 
+  const header = (
+    <div className="card">
+      <h1 className="text-xl font-bold text-gov-dark">
+        الإقرار الذاتي لمربّي المواشي
+      </h1>
+      {existing ? (
+        <div className="mt-2 space-y-1">
+          <p className="text-sm text-gray-600">
+            يوجد إقرار مسبق برقم المعاملة{" "}
+            <span className="font-bold text-gov-dark">{existing.id}</span>.
+            يمكنك مراجعة بياناتك وتعديلها.
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-gray-600">
+          تم التحقق من الهوية. يرجى استكمال البيانات بدقة.
+        </p>
+      )}
+    </div>
+  );
+
+  const form = (
+    <DeclarationForm
+      civilId={identity.civilId}
+      name={identity.name}
+      initialData={existing}
+    />
+  );
+
+  // Editors (existing declaration) skip the legal gate; first-time users must slide to confirm.
+  if (existing) {
+    return (
+      <div className="space-y-5">
+        {header}
+        {form}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div className="card">
-        <h1 className="text-xl font-bold text-gov-dark">
-          الإقرار الذاتي لمربّي المواشي
-        </h1>
-        {existing ? (
-          <div className="mt-2 space-y-1">
-            <p className="text-sm text-gray-600">
-              يوجد إقرار مسبق برقم المعاملة{" "}
-              <span className="font-bold text-gov-dark">{existing.id}</span>.
-              يمكنك مراجعة بياناتك وتعديلها.
-            </p>
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-gray-600">
-            تم التحقق من الهوية. يرجى استكمال البيانات بدقة.
-          </p>
-        )}
-      </div>
-      <DeclarationForm
-        civilId={identity.civilId}
-        name={identity.name}
-        initialData={existing}
-      />
+      {header}
+      <LegalGate>{form}</LegalGate>
     </div>
   );
 }
