@@ -42,7 +42,7 @@ export default function SupervisorManager({
             >
               <div>
                 <span className="text-sm font-semibold text-gray-800">{s.name}</span>
-                <span className="mr-2 font-mono text-xs text-gray-500">{s.civilId}</span>
+                <span className="mr-2 font-mono text-xs text-gray-500">{' '+s.civilId}</span>
               </div>
               <input type="hidden" name="supervisorId" value={s.id} />
               <button
