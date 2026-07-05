@@ -4,7 +4,7 @@
 import { useState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { IconAlertTriangle } from "@/components/icons";
-import { submitAudit } from "./actions";
+import { submitAudit, checkScannedElsewhere } from "./actions";
 import { processChipFile } from "@/lib/chips";
 import type { ParsedReading } from "@/lib/chips";
 
@@ -38,7 +38,7 @@ interface AnimalTypeSiteResult {
   manualCount: number | null;
   nonStarCount: number;
   multipleChipsCount: number;
-  proximityCount: number;
+  scannedElsewhereCount: number;
   doesntBelongCount: number;
 }
 
@@ -71,7 +71,7 @@ type ViolationCounts = {
   declaredManualDiff: number | null;
   scannedManualDiff: number | null;
   multipleChips: number | null;
-  proximity: number | null;
+  scannedElsewhere: number | null;
 };
 
 export default function AuditForm({
@@ -93,6 +93,7 @@ export default function AuditForm({
   const [serverError, setServerError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const [chipPreviews, setChipPreviews] = useState<Record<string, ChipPreviewState>>({});
+  const [liveScannedElsewhere, setLiveScannedElsewhere] = useState<Record<string, number>>({});
 
   const [manualCounts, setManualCounts] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -121,6 +122,7 @@ export default function AuditForm({
   async function handleChipFiles(key: string, files: FileList | null) {
     if (!files || files.length === 0) {
       setChipPreviews(prev => { const next = { ...prev }; delete next[key]; return next; });
+      setLiveScannedElsewhere(prev => { const next = { ...prev }; delete next[key]; return next; });
       return;
     }
     const texts = await Promise.all(Array.from(files).map(f => f.text()));
@@ -130,11 +132,21 @@ export default function AuditForm({
       ...prev,
       [key]: { readings: result.kept, invalidLineCount: result.invalidLines.length, fileCount: files.length }
     }));
+    // Cross-declaration check runs asynchronously; preview shows immediately above.
+    const chipNumbers = [...new Set(result.kept.map(r => r.chipNumber))];
+    const count = await checkScannedElsewhere(declarationId, chipNumbers);
+    setLiveScannedElsewhere(prev => ({ ...prev, [key]: count }));
   }
 
   function getViolationCounts(key: string, type: string, siteIndex: number, declaredCount: number): ViolationCounts {
     const mc = parseInt(manualCounts[key] ?? "");
-    if (isNaN(mc)) return { declaredManualDiff: null, scannedManualDiff: null, multipleChips: null, proximity: null };
+    const saved = defaults?.animalResults[type]?.[siteIndex];
+    // Live count wins if a file was just uploaded; falls back to saved value from last page load.
+    const scannedElsewhere = key in liveScannedElsewhere
+      ? liveScannedElsewhere[key]
+      : (saved?.scannedElsewhereCount ?? null);
+
+    if (isNaN(mc)) return { declaredManualDiff: null, scannedManualDiff: null, multipleChips: null, scannedElsewhere };
 
     const declaredManualDiff = mc - declaredCount;
 
@@ -145,21 +157,20 @@ export default function AuditForm({
         declaredManualDiff,
         scannedManualDiff: mc - preview.readings.length,
         multipleChips: countStarGroups(readings),
-        proximity: preview.readings.filter(r => r.flaggedProximity).length
+        scannedElsewhere
       };
     }
 
-    const saved = defaults?.animalResults[type]?.[siteIndex];
     if (saved && saved.readingCount > 0) {
       return {
         declaredManualDiff,
         scannedManualDiff: mc - saved.readingCount,
         multipleChips: saved.multipleChipsCount,
-        proximity: saved.proximityCount
+        scannedElsewhere
       };
     }
 
-    return { declaredManualDiff, scannedManualDiff: null, multipleChips: null, proximity: null };
+    return { declaredManualDiff, scannedManualDiff: null, multipleChips: null, scannedElsewhere };
   }
 
   function validate(fd: FormData, forPrint = false): Record<string, string> {
@@ -241,7 +252,7 @@ export default function AuditForm({
                 (counts.declaredManualDiff !== null && counts.declaredManualDiff !== 0) ||
                 (counts.scannedManualDiff !== null && counts.scannedManualDiff !== 0) ||
                 (counts.multipleChips !== null && counts.multipleChips > 0) ||
-                (counts.proximity !== null && counts.proximity > 0) ||
+                (counts.scannedElsewhere !== null && counts.scannedElsewhere > 0) ||
                 doesntBelongInt > 0;
 
               return (
@@ -271,7 +282,7 @@ export default function AuditForm({
                   {counts.multipleChips !== null && counts.multipleChips > 0 && (
                     <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="MULTIPLE_CHIPS" />
                   )}
-                  {counts.proximity !== null && counts.proximity > 0 && (
+                  {counts.scannedElsewhere !== null && counts.scannedElsewhere > 0 && (
                     <input type="hidden" name={`differenceReason_${type}_${siteIndex}`} value="SCANNED_ELSEWHERE" />
                   )}
                   {doesntBelongInt > 0 && (
@@ -418,8 +429,9 @@ export default function AuditForm({
                       />
                       <ViolationRow
                         label="شرائح مقروءة في مواقع أخرى"
-                        value={counts.proximity}
-                        isViolation={counts.proximity !== null && counts.proximity > 0}
+                        value={counts.scannedElsewhere}
+                        isViolation={counts.scannedElsewhere !== null && counts.scannedElsewhere > 0}
+                        nullLabel="يحتاج رفع ملف الشرائح"
                       />
                       {/* doesntBelong: manual input */}
                       <div className="flex items-center justify-between px-3 py-2 gap-3">
@@ -480,17 +492,19 @@ function ViolationRow({
   hint,
   value,
   isViolation,
-  formatValue
+  formatValue,
+  nullLabel = "يحتاج عدد يدوي"
 }: {
   label: string;
   hint?: string;
   value: number | null;
   isViolation: boolean;
   formatValue?: (v: number) => string;
+  nullLabel?: string;
 }) {
   const display = value === null
-    ? <span className="text-gray-400 text-xs">يحتاج عدد يدوي</span>
-    : <span className={`font-semibold tabular-nums ${isViolation ? "text-red-700" : "text-green-700"}`}>
+    ? <span className="text-gray-400 text-xs">{nullLabel}</span>
+    : <span dir="ltr" className={`font-semibold tabular-nums ${isViolation ? "text-red-700" : "text-green-700"}`}>
         {formatValue ? formatValue(value) : String(value)}
       </span>;
 

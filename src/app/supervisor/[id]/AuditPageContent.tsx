@@ -128,6 +128,24 @@ export default async function AuditPageContent({
       };
     });
 
+  // Cross-declaration chip lookup: find chip numbers from this audit that also
+  // appear in any other declaration's readings (scanned at another location).
+  const allChipNumbers = audit
+    ? [...new Set(audit.animalResults.flatMap((r) => r.readings.map((c) => c.chipNumber)))]
+    : [];
+
+  let crossMatchSet = new Set<string>();
+  if (allChipNumbers.length > 0) {
+    const crossMatches = await prisma.chipReading.findMany({
+      where: {
+        chipNumber: { in: allChipNumbers },
+        animalResult: { audit: { declarationId: { not: decl.id } } }
+      },
+      select: { chipNumber: true }
+    });
+    crossMatchSet = new Set(crossMatches.map((r) => r.chipNumber));
+  }
+
   const defaults = audit
     ? {
         animalResults: Object.fromEntries(
@@ -142,7 +160,9 @@ export default async function AuditPageContent({
                 if (!result) return undefined;
                 const nonStarCount = result.readings.filter((r) => !r.flaggedSymbol).length;
                 const multipleChipsCount = computeMultipleChipsCount(result.readings);
-                const proximityCount = result.readings.filter((r) => r.flaggedProximity).length;
+                const scannedElsewhereCount = new Set(
+                  result.readings.map((r) => r.chipNumber).filter((c) => crossMatchSet.has(c))
+                ).size;
                 return {
                   violationStatus: result.violationStatus,
                   differenceReasons: result.differenceReasons as string[],
@@ -151,7 +171,7 @@ export default async function AuditPageContent({
                   manualCount: result.manualCount ?? null,
                   nonStarCount,
                   multipleChipsCount,
-                  proximityCount,
+                  scannedElsewhereCount,
                   doesntBelongCount: result.doesntBelongCount ?? 0
                 };
               })

@@ -284,3 +284,20 @@ export async function submitAudit(
     : `${safeReturnTo}?saved=1`;
   redirect(redirectUrl);
 }
+
+// Returns the number of distinct chip numbers (from the given list) that appear
+// in any other declaration's chip readings — used for the live SCANNED_ELSEWHERE check.
+export async function checkScannedElsewhere(
+  declarationId: number,
+  chipNumbers: string[]
+): Promise<number> {
+  if (chipNumbers.length === 0) return 0;
+  const matches = await prisma.chipReading.findMany({
+    where: {
+      chipNumber: { in: chipNumbers },
+      animalResult: { audit: { declarationId: { not: declarationId } } }
+    },
+    select: { chipNumber: true }
+  });
+  return new Set(matches.map((r) => r.chipNumber)).size;
+}
