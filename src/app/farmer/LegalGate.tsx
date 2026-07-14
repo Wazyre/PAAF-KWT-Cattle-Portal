@@ -1,37 +1,14 @@
 "use client";
 // Legal disclaimer gate shown to first-time farmers. Displays three legal sections and a slide-to-confirm
-// control; once slid, records consent in localStorage and reveals the declaration form. Skipped entirely
-// for users who have already confirmed on this browser.
+// control; once slid, reveals the declaration form. Consent is not persisted client-side — the server-side
+// `existing` check in farmer/page.tsx already handles skipping the gate for returning farmers.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-const CONSENT_KEY = "farmer_legal_consent_v1";
-
-// Wraps DeclarationForm for new users. Renders the legal page until the user slides to confirm; then
-// persists consent in localStorage and swaps to the wrapped children.
+// Wraps DeclarationForm for new users. Renders the legal page until the user slides to confirm.
 export default function LegalGate({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(CONSENT_KEY) === "1") setConfirmed(true);
-    } catch {
-      // ignore storage errors (private mode, etc.)
-    }
-    setReady(true);
-  }, []);
-
-  function handleConfirm() {
-    try {
-      localStorage.setItem(CONSENT_KEY, "1");
-    } catch {
-      // ignore storage errors
-    }
-    setConfirmed(true);
-  }
-
-  if (!ready) return null;
   if (confirmed) return <>{children}</>;
 
   return (
@@ -39,30 +16,27 @@ export default function LegalGate({ children }: { children: React.ReactNode }) {
       <div className="card space-y-6">
         <div>
           <h2 className="text-lg font-bold text-gov-dark">
-            قبل البدء، يرجى قراءة الشروط التالية والموافقة عليها
+            قبل البدء، يرجى قراءة البنود التالية والموافقة عليها
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            يجب سحب زر التأكيد في الأسفل للمتابعة إلى الإقرار الذاتي.
-          </p>
         </div>
 
         <section className="space-y-2">
           <h3 className="text-base font-bold text-gov-dark">1. المقدمة</h3>
-          <p className="text-sm leading-relaxed text-gray-800">
+          <p className="text-sm leading-relaxed text-gray-800 text-justify">
             تهدف الهيئة العامة لشؤون الزراعة والثروة السمكية، من خلال إنشاء المنصة الإلكترونية لحصر أعداد الثروة الحيوانية وتطوير منظومة إدارة بياناتها في دولة الكويت، إلى تمكين المستفيدين من برنامج الدعم من إنجاز الإجراءات والخدمات ذات الصلة إلكترونياً بكل يسر وأمان، دون الحاجة إلى الحضور الشخصي. كما تؤكد الهيئة التزامها بسرية البيانات الشخصية وحمايتها وفقاً للتشريعات والضوابط المعمول بها، وصون حقوق المستفيدين من برامج الدعم، وتعزيز مبادئ الشفافية والدقة والموثوقية في جمع البيانات وتحديثها ومعالجتها، بما يسهم في رفع كفاءة إدارة الثروة الحيوانية ودعم اتخاذ القرار.
           </p>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-base font-bold text-gov-dark">2. إلزامية التسجيل</h3>
-          <p className="text-sm leading-relaxed text-gray-800">
+          <p className="text-sm leading-relaxed text-gray-800 text-justify">
             يعد التسجيل في المنصة الإلكترونية شرطاً أساسياً للاستفادة من برامج الدعم التي تقدمها الهيئة العامة لشؤون الزراعة والثروة السمكية. وفي حال عدم قيام المستفيد بالتسجيل أو استكمال البيانات المطلوبة خلال المدة المحددة، يجوز للهيئة تعليق صرف الدعم أو اتخاذ ما تراه مناسباً من إجراءات تنظيمية وفقاً للأحكام والضوابط المعمول بها.
           </p>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-base font-bold text-gov-dark">3. الإقرار والتعهد</h3>
-          <div className="space-y-3 text-sm leading-relaxed text-gray-800">
+          <div className="space-y-3 text-sm leading-relaxed text-gray-800 text-justify">
             <p>
               أقر أنا مقدم طلب التسجيل بأن جميع البيانات والمعلومات والمستندات المرفوعة عبر المنصة الإلكترونية التابعة للهيئة العامة لشؤون الزراعة والثروة السمكية صحيحة ودقيقة وكاملة، وأتعهد بتحديثها فور حدوث أي تغيير يطرأ عليها.
             </p>
@@ -80,10 +54,11 @@ export default function LegalGate({ children }: { children: React.ReactNode }) {
       </div>
 
       <div className="card">
-        <SlideToConfirm onConfirm={handleConfirm} />
-        <p className="mt-3 text-center text-xs text-gray-500">
-          بسحب الزر إلى نهاية الشريط فأنت توافق على جميع البنود أعلاه.
+        <p className="mt-3 text-center text-md text-black-500">
+           أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
         </p>
+        <SlideToConfirm onConfirm={() => setConfirmed(true)} />
+        
       </div>
     </div>
   );
