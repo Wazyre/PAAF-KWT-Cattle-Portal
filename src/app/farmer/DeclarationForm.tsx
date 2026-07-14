@@ -131,6 +131,7 @@ export default function DeclarationForm({
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [serverError, setServerError] = useState("");
   const resolveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const resolveAborts = useRef<Record<string, AbortController>>({});
 
   function validateAll(mobile: string, mobile2: string, pledged: boolean): { fieldErrors: Record<string, string>; formErrors: string[] } {
     const fieldErrs: Record<string, string> = {};
@@ -245,12 +246,17 @@ export default function DeclarationForm({
     }, 180);
   }
 
-  async function resolveLocation(ai: number, li: number) {
-    const link = sections[ai].locations[li].locationLink.trim();
+  async function resolveLocation(ai: number, li: number, link: string) {
     if (!link) return;
+    const key = `${ai}_${li}`;
+    resolveAborts.current[key]?.abort();
+    const ctrl = new AbortController();
+    resolveAborts.current[key] = ctrl;
     update((d) => { d[ai].locations[li].geoStatus = "loading"; });
     try {
-      const res = await fetch(`/api/resolve-location?u=${encodeURIComponent(link)}`);
+      const res = await fetch(`/api/resolve-location?u=${encodeURIComponent(link)}`, {
+        signal: ctrl.signal
+      });
       if (!res.ok) throw new Error("unresolved");
       const data = (await res.json()) as { lat: number; lng: number };
       update((d) => {
@@ -258,7 +264,8 @@ export default function DeclarationForm({
         d[ai].locations[li].lng = data.lng;
         d[ai].locations[li].geoStatus = "ok";
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
       update((d) => {
         d[ai].locations[li].lat = null;
         d[ai].locations[li].lng = null;
@@ -277,7 +284,7 @@ export default function DeclarationForm({
     const key = `${ai}_${li}`;
     clearTimeout(resolveTimers.current[key]);
     if (value.trim()) {
-      resolveTimers.current[key] = setTimeout(() => resolveLocation(ai, li), 700);
+      resolveTimers.current[key] = setTimeout(() => resolveLocation(ai, li, value), 700);
     }
   }
 
@@ -465,7 +472,7 @@ export default function DeclarationForm({
                     )}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="field-label">الرعاة المسجلين على الإقامة</label>
+                    <label className="field-label">عدد الرعاة المسجلين على إقامة المربي</label>
                     <input
                       type="number"
                       min={0}
@@ -492,7 +499,7 @@ export default function DeclarationForm({
                     onChange={(e) => onLocationLinkChange(ai, li, e.target.value)}
                   />
                   <p className="mt-1 text-sm text-gray-500">
-                    يجب أن يكون الموقع المُدخَل ضمن نطاق 5 أمتار من الموقع الفعلي للحظيرة.
+                    يجب أن يكون الموقع المُدخَل ضمن نطاق 5 أمتار من الموقع الفعلي.
                   </p>
                   {loc.geoStatus === "loading" && (
                     <p className="mt-1 text-sm text-gray-500">جارٍ تحديد الموقع…</p>
