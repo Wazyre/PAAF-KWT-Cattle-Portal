@@ -133,7 +133,7 @@ export default function DeclarationForm({
   const resolveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const resolveAborts = useRef<Record<string, AbortController>>({});
 
-  function validateAll(mobile: string, mobile2: string, pledged: boolean): { fieldErrors: Record<string, string>; formErrors: string[] } {
+  function validateAll(mobile: string, mobile2: string): { fieldErrors: Record<string, string>; formErrors: string[] } {
     const fieldErrs: Record<string, string> = {};
     const formErrs: string[] = [];
 
@@ -141,8 +141,6 @@ export default function DeclarationForm({
     else if (!isValidKuwaitMobile(mobile)) fieldErrs.mobile = KUWAIT_MOBILE_ERROR;
 
     if (mobile2.trim() && !isValidKuwaitMobile(mobile2)) fieldErrs.mobile2 = KUWAIT_MOBILE_ERROR;
-
-    if (!pledged) fieldErrs.pledge = "يجب الموافقة على الإقرار قبل الإرسال.";
 
     const activeSections = sections.filter((s) => s.locations.length > 0);
     if (activeSections.length === 0) formErrs.push("يرجى إضافة موقع واحد على الأقل.");
@@ -199,8 +197,7 @@ export default function DeclarationForm({
   async function action(fd: FormData) {
     const mobile = String(fd.get("mobile") ?? "");
     const mobile2 = String(fd.get("mobile2") ?? "");
-    const pledged = fd.get("pledge") === "on";
-    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile, mobile2, pledged);
+    const { fieldErrors: fieldErrs, formErrors: formErrs } = validateAll(mobile, mobile2);
     setFieldErrors(fieldErrs);
     setFormErrors(formErrs);
     setServerError("");
@@ -539,23 +536,6 @@ export default function DeclarationForm({
       })}
 
       <div className="card space-y-4">
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="pledge"
-              required
-              className="mt-0.5 h-5 w-5 shrink-0 rounded border-gray-300 accent-gov"
-            />
-            <span className="text-sm text-gray-700 leading-relaxed">
-              أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
-            </span>
-          </label>
-          {fieldErrors.pledge && (
-            <p className="mt-2 text-sm text-red-600">{fieldErrors.pledge}</p>
-          )}
-        </div>
-
         <SubmitButton isEditing={isEditing} />
         <p className="mt-2 text-xs text-gray-500">
           {isEditing
