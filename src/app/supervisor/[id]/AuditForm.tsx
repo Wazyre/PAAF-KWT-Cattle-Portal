@@ -471,7 +471,7 @@ export default function AuditForm({
             onClick={() => handlePrint(`${returnToBase}/print?animalType=${encodeURIComponent(animalTypeFilter)}`)}
             className="btn-secondary"
           >
-            طباعة هذا النوع
+            طباعة نوع واحد
           </button>
         )}
         <button
@@ -479,7 +479,7 @@ export default function AuditForm({
           onClick={() => handlePrint(`${returnToBase}/print`)}
           className="btn-secondary"
         >
-          طباعة جميع الأنواع
+          طباعة الكل
         </button>
       </div>
     </form>
