@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import type { GatheringPoint, AnimalType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolveIdentity } from "@/lib/identity";
+import {
+  isFeatureAllowed,
+  REGISTRATION_CLOSED_ERROR,
+  UPDATES_CLOSED_ERROR
+} from "@/lib/access";
 import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
 import { GATHERING_POINTS, ANIMAL_TYPES } from "@/lib/constants";
 
@@ -37,10 +42,24 @@ export async function submitDeclaration(
   if (!identity) {
     return { error: "تعذّر التحقق من الهوية. الرقم المدني غير صالح." };
   }
+
+  // Server-side enforcement of the registration / update switches (see `npm run access`).
+  const existing = await prisma.declaration.findUnique({
+    where: { civilId: identity.civilId },
+    include: { animalGroups: { include: { locations: true } } }
+  });
+  if (existing) {
+    if (!(await isFeatureAllowed("UPDATES", identity.civilId))) {
+      return { error: UPDATES_CLOSED_ERROR };
+    }
+  } else if (!(await isFeatureAllowed("REGISTRATION", identity.civilId))) {
+    return { error: REGISTRATION_CLOSED_ERROR };
+  }
+
   if (!isValidKuwaitMobile(mobile)) {
     return { error: KUWAIT_MOBILE_ERROR };
   }
-  if (mobile2 && !isValidKuwaitMobile(mobile2)) {
+  if (mobile2 &&!isValidKuwaitMobile(mobile2)) {
     return { error: KUWAIT_MOBILE_ERROR };
   }
 
@@ -131,11 +150,6 @@ export async function submitDeclaration(
 
     groups.push({ animalType: at as AnimalType, locations });
   }
-
-  const existing = await prisma.declaration.findUnique({
-    where: { civilId: identity.civilId },
-    include: { animalGroups: { include: { locations: true } } }
-  });
 
   if (existing) {
     await prisma.declarationRevision.create({

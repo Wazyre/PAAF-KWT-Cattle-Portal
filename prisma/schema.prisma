@@ -14,6 +14,27 @@ model Citizen {
   name    String
 }
 
+/// Runtime on/off switch per farmer-portal feature, managed with `npm run access`.
+/// No row for a feature means it is open to everyone (ALL).
+model FeatureAccess {
+  feature   Feature    @id
+  mode      AccessMode @default(ALL)
+  /// Only consulted when mode = SPECIFIC.
+  civilIds  String[]
+  updatedAt DateTime   @updatedAt
+}
+
+enum Feature {
+  REGISTRATION // first-time declarations
+  UPDATES      // edits to an existing declaration
+}
+
+enum AccessMode {
+  ALL      // open to every citizen
+  OFF      // closed to everyone
+  SPECIFIC // open only to the listed civil IDs
+}
+
 model Declaration {
   id        Int      @id @default(autoincrement())
   civilId   String   @unique

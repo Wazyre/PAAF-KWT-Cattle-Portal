@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { resolveIdentity } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
+import { isFeatureAllowed } from "@/lib/access";
 import DeclarationForm from "./DeclarationForm";
 import LegalGate from "./LegalGate";
 
@@ -68,6 +69,37 @@ export default async function FarmerPage({
     where: { civilId: identity.civilId },
     include: { animalGroups: { include: { locations: true } } }
   });
+
+  // Registration / update switches (see `npm run access`): show a notice instead of the form.
+  const allowed = await isFeatureAllowed(
+    existing ? "UPDATES" : "REGISTRATION",
+    identity.civilId
+  );
+  if (!allowed) {
+    return (
+      <div className="space-y-5">
+        <div className="card">
+          <h1 className="text-xl font-bold text-gov-dark">
+            الإقرار الذاتي لمربّي المواشي
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            {existing
+              ? "تعديل الإقرارات غير متاح حالياً لهذا الرقم المدني."
+              : "التسجيل الجديد غير متاح حالياً لهذا الرقم المدني."}
+          </p>
+          {existing && (
+            <p className="mt-2 text-sm text-gray-600">
+              رقم المعاملة المسجّلة:{" "}
+              <span className="font-bold text-gov-dark">{existing.id}</span>
+            </p>
+          )}
+        </div>
+        <Link href="/" className="text-sm font-semibold text-gov">
+          ← العودة للرئيسية
+        </Link>
+      </div>
+    );
+  }
 
   const header = (
     <div className="card">

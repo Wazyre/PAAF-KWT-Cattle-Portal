@@ -456,6 +456,25 @@ Scripts from `package.json`:
 | `npm run db:push`   | `prisma db push`                 | Push `schema.prisma` to the database.         |
 | `npm run db:seed`   | `tsx prisma/seed.ts`             | Insert demo citizens and supervisors.         |
 | `npm run db:reset`  | `prisma migrate reset --force`   | Drop and recreate the schema; reseed.         |
+| `npm run access`    | `tsx scripts/access.ts`          | Toggle farmer registration / updates.         |
+
+### Feature switches (`npm run access`)
+
+Two farmer-portal features can be switched at runtime, stored in the `FeatureAccess` table (no restart needed; with no row a feature is open to everyone):
+
+- `registration` — first-time declarations
+- `updates` — edits to an existing declaration
+
+Each feature is either open to everyone, closed to everyone, or open only to listed civil IDs. Enforced in `submitDeclaration` (`src/app/farmer/actions.ts`) and shown as a notice on `/farmer`. Logic lives in `src/lib/access.ts`.
+
+```
+npm run access -- status
+npm run access -- registration off
+npm run access -- registration on
+npm run access -- updates only 287010112345 290051509876   # replaces the allow-list
+npm run access -- updates add 275112207654
+npm run access -- updates remove 287010112345
+```
 
 The `prisma.seed` field in `package.json` is set so `prisma migrate reset` runs the seed automatically.
 
