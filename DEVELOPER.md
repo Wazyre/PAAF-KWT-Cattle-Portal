@@ -154,7 +154,7 @@ Relations: `animalGroups` (1..n), `audit` (0..1), `revisions` (1..n), `soloAssig
 | females        | Int            |                                     |
 | numTenders     | Int            | Workers/tenders                     |
 
-**Audit**: one per declaration (unique). Cascades on declaration delete. Optionally stores `visitFailureReason` (`VisitFailureReason`: `FARMER_NOT_FOUND`, `LOCATION_NOT_READY`, `TEAM_STOPPED`, `OTHER`) and `visitFailureNote` (free text, only for `OTHER`), entered at the end of `AuditForm` and shown on the print page.
+**Audit**: one per declaration (unique). Cascades on declaration delete. Optionally stores `visitFailureReason` (`VisitFailureReason`: `FARMER_NOT_FOUND`, `LOCATION_NOT_READY`, `TEAM_STOPPED`, `OTHER`) and `visitFailureNote` (free text, only for `OTHER`), entered at the end of `AuditForm` and shown on the print page. `approvedAt` is set by the head investigator (button at the bottom of `/head-supervisor/[id]`) and cleared whenever `submitAudit` saves the audit again.
 
 **AuditAnimalResult**: one record per `(audit, animalType, siteIndex)`. Unique compound key. Stores `violationStatus`, JSON `differenceReasons`, supervisor-entered `locationLink`, optional resolved lat/lng, and an optional `manualCount` override.
 

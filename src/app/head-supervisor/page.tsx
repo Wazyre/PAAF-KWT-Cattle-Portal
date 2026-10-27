@@ -23,6 +23,7 @@ type FarmerRow = {
   locationCount: number;
   totalChipped: number;
   hasAudit: boolean;
+  approved: boolean;
 };
 
 type GpGroup = {
@@ -85,9 +86,16 @@ function FarmerTable({
               </td>
               <td className="border border-gray-300 px-3 py-2 text-center">
                 {row.hasAudit ? (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
-                    مكتمل
-                  </span>
+                  <>
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                      مكتمل
+                    </span>
+                    {row.approved && (
+                      <span className="mr-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                        معتمد
+                      </span>
+                    )}
+                  </>
                 ) : (
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">
                     لم يُدقّق
@@ -123,7 +131,7 @@ export default async function HeadSupervisorPage({
           where: { animalType: selectedType },
           include: { locations: true }
         },
-        audit: { select: { id: true } }
+        audit: { select: { id: true, approvedAt: true } }
       },
       orderBy: { createdAt: "asc" }
     })
@@ -178,7 +186,8 @@ export default async function HeadSupervisorPage({
         lng: firstLoc?.longitude ?? null,
         locationCount: locs.length,
         totalChipped,
-        hasAudit: !!decl.audit
+        hasAudit: !!decl.audit,
+        approved: !!decl.audit?.approvedAt
       };
 
       const group = gpMap.get(gpValue)!;

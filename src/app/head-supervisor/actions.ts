@@ -1,5 +1,5 @@
 "use server";
-// Server actions for the head supervisor: assignGroup (link supervisor + visit date to a group) and add/remove supervisor.
+// Server actions for the head supervisor: assignGroup (link supervisor + visit date to a group), add/remove supervisor, and audit approval.
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -49,6 +49,21 @@ export async function assignGroup(formData: FormData): Promise<void> {
     });
   }
 
+  revalidatePath("/head-supervisor");
+}
+
+// Approve (approve=1) or withdraw approval (approve=0) of a declaration's audit. Saving the audit again also withdraws it.
+export async function setAuditApproval(formData: FormData): Promise<void> {
+  const declarationId = Number(formData.get("declarationId"));
+  if (!Number.isInteger(declarationId)) return;
+  const approve = formData.get("approve") === "1";
+
+  await prisma.audit.updateMany({
+    where: { declarationId },
+    data: { approvedAt: approve ? new Date() : null }
+  });
+
+  revalidatePath(`/head-supervisor/${declarationId}`);
   revalidatePath("/head-supervisor");
 }
 

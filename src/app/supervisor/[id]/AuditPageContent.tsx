@@ -5,6 +5,7 @@ import { findProximityHits } from "@/lib/proximity";
 import DeclarationView from "@/components/DeclarationView";
 import { IconCheckCircle, IconAlertTriangle } from "@/components/icons";
 import { GATHERING_POINTS, ANIMAL_TYPES, animalTypeLabel } from "@/lib/constants";
+import { setAuditApproval } from "@/app/head-supervisor/actions";
 import AuditForm from "./AuditForm";
 import ChipFlagsTable from "./ChipFlagsTable";
 
@@ -185,6 +186,19 @@ export default async function AuditPageContent({
       }
     : undefined;
 
+  // Locations (per animal type + site) that already have an audit result.
+  const totalLocations = decl.animalGroups.reduce((n, g) => n + g.locations.length, 0);
+  const auditedLocations = decl.animalGroups.reduce(
+    (n, g) =>
+      n +
+      g.locations.filter((_, siteIndex) =>
+        audit?.animalResults.some(
+          (r) => r.animalType === g.animalType && r.siteIndex === siteIndex
+        )
+      ).length,
+    0
+  );
+
   const visibleResults = audit?.animalResults.filter(
     (r) => !requestedType || r.animalType === requestedType
   ) ?? [];
@@ -316,6 +330,36 @@ export default async function AuditPageContent({
         defaults={defaults}
         headSupervisorMode={headSupervisorMode}
       />
+
+      {headSupervisorMode && audit && (
+        <div className="card space-y-3 no-print">
+          <h2 className="text-lg font-bold text-gov-dark">اعتماد رئيس المفتشين</h2>
+          <p className="text-sm text-gray-600">
+            المواقع المُدقَّقة: {auditedLocations} من {totalLocations}. أي حفظ لاحق
+            لبيانات التدقيق يُلغي الاعتماد.
+          </p>
+          <form action={setAuditApproval} className="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="declarationId" value={decl.id} />
+            {audit.approvedAt ? (
+              <>
+                <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">
+                  معتمد بتاريخ {fmtDate(audit.approvedAt)}
+                </span>
+                <input type="hidden" name="approve" value="0" />
+                <button type="submit" className="btn-secondary">إلغاء الاعتماد</button>
+              </>
+            ) : (
+              <>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-gray-600">
+                  غير معتمد
+                </span>
+                <input type="hidden" name="approve" value="1" />
+                <button type="submit" className="btn-primary">اعتماد التدقيق</button>
+              </>
+            )}
+          </form>
+        </div>
+      )}
 
       {decl.revisions.length > 0 && (
         <div className="card space-y-3 no-print">

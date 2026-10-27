@@ -219,7 +219,7 @@ export async function submitAudit(
   await prisma.$transaction(async (tx) => {
     const audit = await tx.audit.upsert({
       where: { declarationId },
-      update: { visitFailureReason, visitFailureNote },
+      update: { visitFailureReason, visitFailureNote, approvedAt: null },
       create: { declarationId, visitFailureReason, visitFailureNote }
     });
 

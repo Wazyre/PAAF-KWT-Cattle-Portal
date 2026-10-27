@@ -95,6 +95,9 @@ model Audit {
   declarationId Int      @unique
   createdAt     DateTime @default(now())
 
+  /// Set by the head investigator; cleared whenever the audit is saved again.
+  approvedAt    DateTime?
+
   /// Optional: why the field visit could not be completed. visitFailureNote is only used with OTHER.
   visitFailureReason VisitFailureReason?
   visitFailureNote   String?
