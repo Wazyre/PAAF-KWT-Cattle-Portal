@@ -28,6 +28,13 @@ export const DIFFERENCE_REASONS = [
   { value: "CHIP_DOESNT_BELONG", label: "أرقام الشرائح ليست مسجلة باسم المربي" }
 ] as const;
 
+export const VISIT_FAILURE_REASONS = [
+  { value: "FARMER_NOT_FOUND", label: "لم يتم العثور على المربّي في الموقع" },
+  { value: "LOCATION_NOT_READY", label: "الموقع غير جاهز للزيارة الميدانية" },
+  { value: "TEAM_STOPPED", label: "تم إيقاف فريق التدقيق" },
+  { value: "OTHER", label: "أخرى" }
+] as const;
+
 // Generic enum value to Arabic label lookup; returns the value itself if no label is registered.
 function labelOf(
   list: ReadonlyArray<{ value: string; label: string }>,
@@ -45,6 +52,9 @@ export const violationStatusLabel = (v: string | null | undefined) =>
   labelOf(VIOLATION_STATUSES, v);
 export const differenceReasonLabel = (v: string | null | undefined) =>
   labelOf(DIFFERENCE_REASONS, v);
+
+export const visitFailureReasonLabel = (v: string | null | undefined) =>
+  labelOf(VISIT_FAILURE_REASONS, v);
 
 // Proximity threshold for "too close" farmer locations / readings.
 export const PROXIMITY_METERS = 5;

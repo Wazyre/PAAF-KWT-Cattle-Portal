@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { IconAlertTriangle } from "@/components/icons";
 import { submitAudit, checkScannedElsewhere } from "./actions";
 import { processChipFile } from "@/lib/chips";
+import { VISIT_FAILURE_REASONS } from "@/lib/constants";
 import type { ParsedReading } from "@/lib/chips";
 
 // Submit button bound to the audit form; reflects pending state via useFormStatus.
@@ -85,6 +86,7 @@ export default function AuditForm({
   animalTypes: AnimalTypeEntry[];
   defaults?: {
     animalResults: Record<string, (AnimalTypeSiteResult | null | undefined)[]>;
+    visitFailure?: { reason: string; note: string };
   };
   animalTypeFilter?: string;
   headSupervisorMode?: boolean;
@@ -94,6 +96,10 @@ export default function AuditForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [chipPreviews, setChipPreviews] = useState<Record<string, ChipPreviewState>>({});
   const [liveScannedElsewhere, setLiveScannedElsewhere] = useState<Record<string, number>>({});
+
+  const [failureReason, setFailureReason] = useState(defaults?.visitFailure?.reason ?? "");
+  const [failureNote, setFailureNote] = useState(defaults?.visitFailure?.note ?? "");
+  const [failureError, setFailureError] = useState("");
 
   const [manualCounts, setManualCounts] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -200,6 +206,10 @@ export default function AuditForm({
     const errs = validate(fd);
     setFieldErrors(errs);
     setServerError("");
+    if (failureReason === "OTHER" && !failureNote.trim()) {
+      setFailureError("يرجى توضيح السبب.");
+      return;
+    }
     if (Object.keys(errs).length > 0) return;
     const res = await submitAudit({}, fd);
     if (res?.error) setServerError(res.error);
@@ -462,6 +472,50 @@ export default function AuditForm({
           </div>
         ))}
       </div>
+
+      {/* Optional: why the field visit could not be completed */}
+      <fieldset className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+        <legend className="px-1 font-semibold text-gray-700">
+          سبب تعذّر الزيارة الميدانية (اختياري)
+        </legend>
+        <div className="space-y-2">
+          {VISIT_FAILURE_REASONS.map(({ value, label }) => (
+            <label key={value} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="radio"
+                name="visitFailureReason"
+                value={value}
+                checked={failureReason === value}
+                onChange={() => { setFailureReason(value); setFailureError(""); }}
+              />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        {failureReason === "OTHER" && (
+          <div>
+            <input
+              name="visitFailureNote"
+              className="field-input"
+              maxLength={500}
+              placeholder="اذكر السبب"
+              aria-label="سبب تعذّر الزيارة (أخرى)"
+              value={failureNote}
+              onChange={(e) => { setFailureNote(e.target.value); setFailureError(""); }}
+            />
+            {failureError && <p className="mt-1 text-sm text-red-600">{failureError}</p>}
+          </div>
+        )}
+        {failureReason && (
+          <button
+            type="button"
+            onClick={() => { setFailureReason(""); setFailureNote(""); setFailureError(""); }}
+            className="text-xs font-semibold text-gov"
+          >
+            إلغاء الاختيار
+          </button>
+        )}
+      </fieldset>
 
       <div className="flex flex-wrap gap-3">
         <SubmitButton />

@@ -148,6 +148,10 @@ export default async function AuditPageContent({
 
   const defaults = audit
     ? {
+        visitFailure: {
+          reason: audit.visitFailureReason ?? "",
+          note: audit.visitFailureNote ?? ""
+        },
         animalResults: Object.fromEntries(
           allAnimalTypes.map((type) => {
             const group = decl.animalGroups.find((g) => g.animalType === type)!;

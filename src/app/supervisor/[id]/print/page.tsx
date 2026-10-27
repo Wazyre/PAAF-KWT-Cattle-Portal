@@ -6,6 +6,7 @@ import PrintButton from "@/components/PrintButton";
 import {
   violationStatusLabel,
   differenceReasonLabel,
+  visitFailureReasonLabel,
   animalTypeLabel,
   ANIMAL_TYPES
 } from "@/lib/constants";
@@ -215,6 +216,18 @@ export default async function PrintPage({
               </div>
             );
           })}
+
+          {audit.visitFailureReason && (
+            <div className="space-y-1 border-t border-gray-300 pt-3 text-sm">
+              <div className="text-xs text-gray-500">سبب تعذّر الزيارة الميدانية</div>
+              <div className="font-semibold">
+                {visitFailureReasonLabel(audit.visitFailureReason)}
+                {audit.visitFailureReason === "OTHER" && audit.visitFailureNote
+                  ? `: ${audit.visitFailureNote}`
+                  : ""}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-8 pt-8 text-sm">
             <div>توقيع مشرف الفريق: ............................</div>

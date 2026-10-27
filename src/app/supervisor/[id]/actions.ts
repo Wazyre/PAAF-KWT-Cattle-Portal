@@ -3,11 +3,11 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { ViolationStatus, AnimalType } from "@prisma/client";
+import type { ViolationStatus, AnimalType, VisitFailureReason } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { processChipFile } from "@/lib/chips";
 import { parseLatLng, isShortLink, expandShortLink } from "@/lib/geo";
-import { VIOLATION_STATUSES, DIFFERENCE_REASONS, animalTypeLabel } from "@/lib/constants";
+import { VIOLATION_STATUSES, DIFFERENCE_REASONS, VISIT_FAILURE_REASONS, animalTypeLabel } from "@/lib/constants";
 
 export interface AuditState {
   error?: string;
@@ -16,6 +16,7 @@ export interface AuditState {
 
 const VS = new Set<string>(VIOLATION_STATUSES.map((v) => v.value));
 const DR = new Set<string>(DIFFERENCE_REASONS.map((d) => d.value));
+const VFR = new Set<string>(VISIT_FAILURE_REASONS.map((v) => v.value));
 
 // Resolve a pasted location string to coordinates, expanding short links first if needed.
 async function resolveLocation(
@@ -203,12 +204,23 @@ export async function submitAudit(
     processedFiles.set(key, result);
   }
 
+  // Optional visit-failure reason; the note is only kept (and required) for OTHER.
+  const failureRaw = String(formData.get("visitFailureReason") ?? "");
+  const visitFailureReason = VFR.has(failureRaw)
+    ? (failureRaw as VisitFailureReason)
+    : null;
+  const failureNote = String(formData.get("visitFailureNote") ?? "").trim().slice(0, 500);
+  if (visitFailureReason === "OTHER" && !failureNote) {
+    return { error: "يرجى توضيح سبب تعذّر الزيارة الميدانية." };
+  }
+  const visitFailureNote = visitFailureReason === "OTHER" ? failureNote : null;
+
   // Upsert audit + per-site results inside a transaction
   await prisma.$transaction(async (tx) => {
     const audit = await tx.audit.upsert({
       where: { declarationId },
-      update: {},
-      create: { declarationId }
+      update: { visitFailureReason, visitFailureNote },
+      create: { declarationId, visitFailureReason, visitFailureNote }
     });
 
     for (const p of payloads) {

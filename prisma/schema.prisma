@@ -95,8 +95,19 @@ model Audit {
   declarationId Int      @unique
   createdAt     DateTime @default(now())
 
+  /// Optional: why the field visit could not be completed. visitFailureNote is only used with OTHER.
+  visitFailureReason VisitFailureReason?
+  visitFailureNote   String?
+
   declaration   Declaration        @relation(fields: [declarationId], references: [id], onDelete: Cascade)
   animalResults AuditAnimalResult[]
+}
+
+enum VisitFailureReason {
+  FARMER_NOT_FOUND   // farmer not found at the location
+  LOCATION_NOT_READY // location was not ready for the field visit
+  TEAM_STOPPED       // the audit team was stopped
+  OTHER
 }
 
 model AuditAnimalResult {
