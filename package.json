@@ -10,7 +10,10 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
-    "access": "tsx scripts/access.ts"
+    "access": "tsx scripts/access.ts",
+    "import:farmers": "tsx scripts/import-farmers.ts",
+    "export": "tsx scripts/export.ts",
+    "db:backfill-flags": "tsx scripts/backfill-flags.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

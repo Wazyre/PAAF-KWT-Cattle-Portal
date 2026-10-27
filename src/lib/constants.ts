@@ -60,5 +60,8 @@ export const visitFailureReasonLabel = (v: string | null | undefined) =>
 export const PROXIMITY_METERS = 5;
 export const PROXIMITY_SECONDS = 5;
 
+// A farmer declaring fewer heads than this (in total) is flagged Declaration.lowHeadCount.
+export const LOW_HEAD_THRESHOLD = 50;
+
 // Minimum distance between two locations declared by the same farmer for the same animal type.
 export const MIN_SITE_DISTANCE_METERS = 100;

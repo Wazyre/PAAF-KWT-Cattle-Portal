@@ -44,6 +44,9 @@ model Declaration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// True when total declared heads (sum of chippedCount) < LOW_HEAD_THRESHOLD. Maintained on submit.
+  lowHeadCount Boolean @default(false)
+
   animalGroups    AnimalGroup[]
   audit           Audit?
   revisions       DeclarationRevision[]

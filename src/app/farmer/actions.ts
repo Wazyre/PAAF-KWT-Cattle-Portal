@@ -12,6 +12,7 @@ import {
 } from "@/lib/access";
 import { isValidKuwaitMobile, KUWAIT_MOBILE_ERROR } from "@/lib/phone";
 import { GATHERING_POINTS, ANIMAL_TYPES } from "@/lib/constants";
+import { isLowHeadCount, totalHeads } from "@/lib/heads";
 
 export interface DeclarationState {
   error?: string;
@@ -151,6 +152,8 @@ export async function submitDeclaration(
     groups.push({ animalType: at as AnimalType, locations });
   }
 
+  const lowHeadCount = isLowHeadCount(totalHeads(groups));
+
   if (existing) {
     await prisma.declarationRevision.create({
       data: {
@@ -179,6 +182,7 @@ export async function submitDeclaration(
       data: {
         mobile,
         mobile2,
+        lowHeadCount,
         animalGroups: {
           create: groups.map((g) => ({
             animalType: g.animalType,
@@ -196,6 +200,7 @@ export async function submitDeclaration(
         name: identity.name,
         mobile,
         mobile2,
+        lowHeadCount,
         animalGroups: {
           create: groups.map((g) => ({
             animalType: g.animalType,

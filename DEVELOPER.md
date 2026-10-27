@@ -134,6 +134,7 @@ Defined in `prisma/schema.prisma`. PostgreSQL provider; Prisma client generated 
 | mobile    | String     |                                         |
 | createdAt | DateTime   |                                         |
 | updatedAt | DateTime   |                                         |
+| lowHeadCount | Boolean | `true` when total declared heads < `LOW_HEAD_THRESHOLD` (50). Set by `submitDeclaration`; `npm run db:backfill-flags` recomputes it. |
 
 Relations: `animalGroups` (1..n), `audit` (0..1), `revisions` (1..n), `soloAssignments` (1..n).
 
@@ -285,6 +286,10 @@ Source: `src/app/api/resolve-location/route.ts`.
 | 422    | `{ error: "unresolved" }`         | Could not extract coordinates.                             |
 
 ## 9. Library modules
+
+### `GET /api/export/<macro>`
+
+Downloads one CSV export (UTF-8 with BOM, CRLF). Macro names are listed under *Data import and export* below. 404 for an unknown name. The head-supervisor dashboard links to every macro.
 
 ### `src/lib/prisma.ts`
 
@@ -457,6 +462,9 @@ Scripts from `package.json`:
 | `npm run db:seed`   | `tsx prisma/seed.ts`             | Insert demo citizens and supervisors.         |
 | `npm run db:reset`  | `prisma migrate reset --force`   | Drop and recreate the schema; reseed.         |
 | `npm run access`    | `tsx scripts/access.ts`          | Toggle farmer registration / updates.         |
+| `npm run import:farmers` | `tsx scripts/import-farmers.ts` | Import a farmer CSV into `Citizen`.       |
+| `npm run export`    | `tsx scripts/export.ts`          | Write CSV exports (see below).                |
+| `npm run db:backfill-flags` | `tsx scripts/backfill-flags.ts` | Recompute `Declaration.lowHeadCount`.   |
 
 ### Feature switches (`npm run access`)
 
@@ -475,6 +483,26 @@ npm run access -- updates only 287010112345 290051509876   # replaces the allow-
 npm run access -- updates add 275112207654
 npm run access -- updates remove 287010112345
 ```
+
+### Data import and export
+
+**Import farmers** — `npm run import:farmers -- <file.csv> [--dry-run] [--skip-invalid]`
+
+Loads a farmer list into the `Citizen` table (the identity lookup, so imported farmers are also the only ones who can register). CSV columns: 12-digit civil ID and name; header row optional (without one the order is `civilId,name`); comma, semicolon or tab separated; Arabic-Indic digits are converted. Existing civil IDs are left unchanged. Any invalid row aborts the whole import unless `--skip-invalid` is passed. Imported farmers have no `Declaration` until they declare.
+
+**Export** — `npm run export -- <macro|all|list> [--dir <folder>]` (default folder `./exports`, git-ignored), or the buttons on the head-supervisor dashboard (`/api/export/<macro>`). Both use `src/lib/exports.ts`, so they always match.
+
+| Macro            | Rows                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------- |
+| `not-declared`   | Imported farmers (name + civil ID) with no declaration.                                       |
+| `declared`       | Farmers with a declaration: contact, total heads per animal type, locations, low-head flag.   |
+| `low-heads`      | Declarations with `lowHeadCount = true` (total declared heads < 50).                          |
+| `fully-approved` | Every declared location has an audit result **and** the audit is approved by the head investigator. |
+| `audit-data`     | One row per audited site (counts, violations, reasons, location, visit-failure reason, approval). A failed visit with no site data gets one row. |
+| `audit-readings` | One row per chip reading with its flags (large).                                              |
+| `all-farmers`    | Master list: every imported farmer with declaration / audit / approval status.                |
+
+Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. There is no authentication on any portal, including these downloads.
 
 The `prisma.seed` field in `package.json` is set so `prisma migrate reset` runs the seed automatically.
 

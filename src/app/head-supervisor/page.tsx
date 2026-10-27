@@ -7,6 +7,7 @@ import ScheduleRow from "@/app/supervisor/ScheduleRow";
 import MapLink from "@/app/supervisor/MapLink";
 import AssignControl from "./AssignControl";
 import SupervisorManager from "./SupervisorManager";
+import { EXPORT_MACROS } from "@/lib/exports";
 
 export const dynamic = "force-dynamic";
 
@@ -214,6 +215,26 @@ export default async function HeadSupervisorPage({
       </div>
 
       <SupervisorManager supervisors={supervisors} />
+
+      <div className="card space-y-3">
+        <h2 className="text-lg font-bold text-gov-dark">تصدير البيانات</h2>
+        <p className="text-sm text-gray-600">
+          ملفات CSV تُفتح في Excel. تُحمَّل بأحدث البيانات وقت الضغط.
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {EXPORT_MACROS.map((m) => (
+            <li key={m.key}>
+              <a
+                href={`/api/export/${m.key}`}
+                className="block rounded-lg border border-gray-300 px-4 py-3 transition-colors hover:border-gov"
+              >
+                <span className="block font-semibold text-gov-dark">{m.label} ↓</span>
+                <span className="block text-xs text-gray-500">{m.description}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {ANIMAL_TYPES.map((at) => (

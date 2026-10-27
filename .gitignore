@@ -1,6 +1,7 @@
 node_modules
 .next
 out
+exports
 .env
 *.log
 .DS_Store
