@@ -29,7 +29,27 @@ There is no separate API service. Mutations go through Next.js Server Actions in
 
 ---
 
-## 3. First-time setup (≈15 minutes)
+## 3. Deploying (non-technical)
+
+Needs only [Docker Desktop](https://www.docker.com/products/docker-desktop) on the computer or server that will host the portal.
+
+1. Install Docker Desktop and open it (wait for "Engine running").
+2. Double-click **`Start Sheep Portal.bat`**. The first run takes a few minutes; the browser opens by itself when the portal is ready.
+
+That's it. The portal restarts automatically with the computer, and data is kept between restarts.
+
+- **Stop:** double-click `Stop Sheep Portal.bat`.
+- **Load the farmer list:** drag a CSV file (civil ID, name) onto `Import Farmers.bat`.
+- **Other devices on the network:** open `http://<this-computer's-IP>:3000`.
+- **Update to a new version:** replace the project files and double-click `Start Sheep Portal.bat` again.
+
+**Linux:** open a terminal in the project folder and run `./start-sheep-portal.sh` (if it isn't executable, run `bash start-sheep-portal.sh`). If Docker isn't installed, the script offers to install it. Equivalents: `./stop-sheep-portal.sh` and `./import-farmers.sh farmers.csv`. On macOS, `docker compose up -d --build` does the same thing.
+
+Demo citizens/supervisors are *not* loaded in this mode. To add them: `docker compose exec app npm run db:seed`.
+
+---
+
+## 3b. Developer setup (≈15 minutes)
 
 Prerequisites: Node 18+, Docker Desktop, Git.
 
@@ -37,7 +57,7 @@ Prerequisites: Node 18+, Docker Desktop, Git.
 git clone <repo>
 cd "Sheep Portal"
 cp .env.example .env              # uses 127.0.0.1, not localhost — see §10
-docker compose up -d              # starts Postgres on :5432
+docker compose up -d db           # starts only Postgres on :5432 (plain `up` also runs the app on :3000)
 npm install
 npx prisma db push                # creates the schema in the running DB
 npm run db:seed                   # adds the demo citizens & supervisors
