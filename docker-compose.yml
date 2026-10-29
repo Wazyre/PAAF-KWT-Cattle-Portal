@@ -7,10 +7,28 @@ services:
       POSTGRES_USER: sheep
       POSTGRES_PASSWORD: sheep
       POSTGRES_DB: sheep_portal
+    # Localhost only: for `npm run dev` on a developer machine, not reachable from the network.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - sheep_portal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sheep -d sheep_portal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    container_name: sheep_portal_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sheep:sheep@db:5432/sheep_portal?schema=public
+    ports:
+      - "3000:3000"
 
 volumes:
   sheep_portal_pgdata:
