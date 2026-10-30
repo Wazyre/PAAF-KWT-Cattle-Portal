@@ -6,6 +6,11 @@ if "%~1"=="" (
   pause
   exit /b 1
 )
-docker compose cp "%~1" app:/tmp/farmers.csv
-docker compose exec app npm run import:farmers -- /tmp/farmers.csv --skip-invalid
+where docker >nul 2>&1
+if errorlevel 1 (
+  call npm run import:farmers -- "%~1" --skip-invalid
+) else (
+  docker compose cp "%~1" app:/tmp/farmers.csv
+  docker compose exec app npm run import:farmers -- /tmp/farmers.csv --skip-invalid
+)
 pause

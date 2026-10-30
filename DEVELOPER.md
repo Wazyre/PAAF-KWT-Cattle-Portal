@@ -457,6 +457,7 @@ Scripts from `package.json`:
 | `npm run dev`       | `next dev`                       | Dev server with hot reload.                   |
 | `npm run build`     | `prisma generate && next build`  | Production build.                             |
 | `npm run start`     | `next start`                     | Run the production build.                     |
+| `npm run start:local` | `node scripts/run-local.mjs`   | Docker-free launcher: set up DB on local PostgreSQL, build if stale, serve. |
 | `npm run lint`      | `next lint`                      | Lint via Next.js ESLint config.               |
 | `npm run db:push`   | `prisma db push`                 | Push `schema.prisma` to the database.         |
 | `npm run db:seed`   | `tsx prisma/seed.ts`             | Insert demo citizens and supervisors.         |

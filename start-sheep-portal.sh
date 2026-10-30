@@ -4,7 +4,12 @@ set -e
 cd "$(dirname "$0")"
 
 if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is not installed."
+  # No Docker: run on the PostgreSQL installed on this machine (needs Node.js 18+).
+  if command -v node >/dev/null 2>&1; then
+    echo "Docker was not found. Using the PostgreSQL installed on this computer instead."
+    exec node scripts/run-local.mjs
+  fi
+  echo "Docker is not installed (and neither is Node.js, which would allow running without it)."
   read -r -p "Install it now? (needs internet and sudo) [y/N] " answer
   [ "$answer" = "y" ] || [ "$answer" = "Y" ] || { echo "Cancelled."; exit 1; }
   curl -fsSL https://get.docker.com | sudo sh

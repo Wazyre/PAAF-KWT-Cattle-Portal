@@ -3,12 +3,14 @@ setlocal
 cd /d "%~dp0"
 title Sheep Portal
 
+where docker >nul 2>&1
+if errorlevel 1 goto nodocker
+
 docker info >nul 2>&1
 if errorlevel 1 (
   echo.
   echo  Docker Desktop is not running.
-  echo  1. If it is not installed: https://www.docker.com/products/docker-desktop
-  echo  2. Open Docker Desktop, wait until it says "Engine running", then run this file again.
+  echo  Open Docker Desktop, wait until it says "Engine running", then run this file again.
   echo.
   pause
   exit /b 1
@@ -36,3 +38,21 @@ echo.
 echo  Sheep Portal is running at http://localhost:3000
 echo  It restarts by itself when the computer restarts. Run "Stop Sheep Portal.bat" to stop it.
 timeout /t 8 >nul
+exit /b 0
+
+:nodocker
+where node >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo  Docker was not found, and neither was Node.js. Install ONE of these, then run this file again:
+  echo    A. Docker Desktop:  https://www.docker.com/products/docker-desktop
+  echo    B. Node.js 18+ ^(https://nodejs.org^) and PostgreSQL ^(https://www.postgresql.org/download/windows/^)
+  echo.
+  pause
+  exit /b 1
+)
+echo Docker was not found. Using the PostgreSQL installed on this computer instead.
+node scripts\run-local.mjs
+set code=%errorlevel%
+if not "%code%"=="0" pause
+exit /b %code%

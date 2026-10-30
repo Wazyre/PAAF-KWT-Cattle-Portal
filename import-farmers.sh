@@ -3,6 +3,9 @@
 # The CSV needs a civil ID and a name per row.
 cd "$(dirname "$0")"
 [ -n "$1" ] && [ -f "$1" ] || { echo "Usage: ./import-farmers.sh <farmers.csv>"; exit 1; }
+if ! command -v docker >/dev/null 2>&1; then
+  exec npm run import:farmers -- "$1" --skip-invalid
+fi
 DOCKER="docker"
 docker info >/dev/null 2>&1 || DOCKER="sudo docker"
 $DOCKER compose cp "$1" app:/tmp/farmers.csv

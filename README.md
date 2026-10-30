@@ -45,6 +45,13 @@ That's it. The portal restarts automatically with the computer, and data is kept
 
 **Linux:** open a terminal in the project folder and run `./start-sheep-portal.sh` (if it isn't executable, run `bash start-sheep-portal.sh`). If Docker isn't installed, the script offers to install it. Equivalents: `./stop-sheep-portal.sh` and `./import-farmers.sh farmers.csv`. On macOS, `docker compose up -d --build` does the same thing.
 
+**No Docker?** The same launchers automatically fall back to a PostgreSQL server installed on the computer (nothing else to configure). It needs [Node.js 18+](https://nodejs.org) and [PostgreSQL](https://www.postgresql.org/download/) running on port 5432. On first run it asks once for the PostgreSQL admin ("postgres") password to create the `sheep` user and `sheep_portal` database, installs dependencies, builds the site and opens the browser. Differences from the Docker mode:
+
+- The portal runs in the window that opens; closing the window (or Ctrl+C) stops it. It does not start by itself after a restart.
+- After updating the project files, run the launcher again; it rebuilds automatically when the code changed.
+- To use a different database, put your own `DATABASE_URL` in `.env`; `PORT=3001` changes the port. `npm run start:local` does the same as the launcher.
+- Re-running the launcher resets the `sheep` user's password to the one in `DATABASE_URL`.
+
 Demo citizens/supervisors are *not* loaded in this mode. To add them: `docker compose exec app npm run db:seed`.
 
 ---
