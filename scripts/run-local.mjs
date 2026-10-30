@@ -231,7 +231,7 @@ function ensureDependencies() {
     return;
   }
   step("Installing dependencies (first run takes a few minutes)");
-  const r = spawnSync("npm", ["ci"], { stdio: "inherit", shell: isWin });
+  const r = spawnSync("npm ci", { stdio: "inherit", shell: true }); // one string: Node 26 warns when args + shell are combined
   if (r.status !== 0) die("npm could not install the dependencies. Check the internet connection and try again.");
   writeFileSync(stamp, hash);
 }
