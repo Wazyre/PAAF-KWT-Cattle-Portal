@@ -7,9 +7,8 @@ services:
       POSTGRES_USER: sheep
       POSTGRES_PASSWORD: sheep
       POSTGRES_DB: sheep_portal
-    # Localhost only: for `npm run dev` on a developer machine, not reachable from the network.
-    ports:
-      - "127.0.0.1:5432:5432"
+    # No host port on purpose: a PostgreSQL installed on the host often owns 5432 and would stop this
+    # container from starting. Developers add the port with docker-compose.dev.yml (`npm run db:up`).
     volumes:
       - sheep_portal_pgdata:/var/lib/postgresql/data
     healthcheck:

@@ -60,7 +60,9 @@ DATABASE_URL="postgresql://sheep:sheep@127.0.0.1:5432/sheep_portal?schema=public
 
 ### Docker
 
-`docker-compose.yml` defines a single service:
+`docker-compose.yml` defines the `db` service below plus the `app` service used by the launchers. The host port for Postgres is deliberately not published there: a PostgreSQL installed on the host usually owns 5432 and would stop the container from starting. For development, `npm run db:up` starts only `db` with `docker-compose.dev.yml` layered on top, which publishes `127.0.0.1:5432`.
+
+The `db` service:
 
 | Field        | Value                       |
 | ------------ | --------------------------- |
@@ -68,7 +70,7 @@ DATABASE_URL="postgresql://sheep:sheep@127.0.0.1:5432/sheep_portal?schema=public
 | container    | `sheep_portal_db`           |
 | user/pass    | `sheep` / `sheep`           |
 | database     | `sheep_portal`              |
-| port mapping | `5432:5432`                 |
+| port mapping | none in `docker-compose.yml`; `docker-compose.dev.yml` adds `127.0.0.1:5432:5432` |
 | volume       | `sheep_portal_pgdata`       |
 
 ### Next.js configuration
@@ -105,7 +107,8 @@ src/generated/prisma/               Generated Prisma client (git-ignored; create
 public/
   logo.png                          Authority logo
   sample-chip-readings.txt          Sample chip-reading file
-docker-compose.yml                  Postgres service
+docker-compose.yml                  Postgres + app services
+docker-compose.dev.yml              Dev override: publish Postgres on 127.0.0.1:5432
 next.config.mjs                     Next.js config
 tailwind.config.ts                  Tailwind config (theme colors, content globs)
 postcss.config.mjs                  PostCSS plugins
@@ -461,6 +464,7 @@ Scripts from `package.json`:
 | `npm run build`     | `prisma generate && next build`  | Production build.                             |
 | `npm run start`     | `next start`                     | Run the production build.                     |
 | `npm run start:local` | `node scripts/run-local.mjs`   | Docker-free launcher: set up DB on local PostgreSQL, build if stale, serve. |
+| `npm run db:up`     | `docker compose -f … up -d db`   | Start only Postgres on 127.0.0.1:5432 for local development. |
 | `npm run db:generate` | `prisma generate`              | Regenerate the Prisma client into `src/generated/prisma`. |
 | `npm run db:push`   | `prisma db push`                 | Push `schema.prisma` to the database (no longer generates the client). |
 | `npm run db:seed`   | `tsx prisma/seed.ts`             | Insert demo citizens and supervisors.         |

@@ -64,7 +64,7 @@ Prerequisites: Node 20.19+, Docker Desktop, Git.
 git clone <repo>
 cd "Sheep Portal"
 cp .env.example .env              # uses 127.0.0.1, not localhost — see §10
-docker compose up -d db           # starts only Postgres on :5432 (plain `up` also runs the app on :3000)
+npm run db:up                     # starts only Postgres, published on 127.0.0.1:5432 (docker-compose.dev.yml)
 npm install
 npm run db:generate                # generates the Prisma client into src/generated (git-ignored)
 npm run db:push                   # creates the schema in the running DB
@@ -143,7 +143,8 @@ prisma/
 public/
   logo.png                          PAAFR logo
   sample-chip-readings.txt          Demo chip file covering every rule
-docker-compose.yml                  Postgres 16 on :5432
+docker-compose.yml                  Postgres 16 + the app (no host DB port)
+docker-compose.dev.yml              Dev override: publishes Postgres on 127.0.0.1:5432
 .env.example                        DATABASE_URL using 127.0.0.1 (NOT localhost)
 ```
 

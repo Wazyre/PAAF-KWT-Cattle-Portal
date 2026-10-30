@@ -1,0 +1,6 @@
+# Developer override: publishes Postgres on localhost:5432 so `npm run dev` can reach it.
+# Use via `npm run db:up`. Not needed (and it fails if the host already uses 5432) for the one-click launchers.
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"
