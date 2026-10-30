@@ -219,7 +219,6 @@ Cross-farmer proximity (different code path): `src/lib/proximity.ts::findProximi
 npm run dev          # next dev with hot reload
 npm run build        # prisma generate + next build
 npm run start        # production server (run build first)
-npm run lint         # next lint
 
 npm run db:push      # push schema.prisma to the DB (no migration history)
 npm run db:seed      # tsx prisma/seed.ts — adds demo citizens & supervisors
