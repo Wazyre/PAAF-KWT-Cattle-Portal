@@ -1,5 +1,6 @@
 // CLI to toggle farmer-portal features. Run via `npm run access -- <args>` (see USAGE below).
-import type { AccessMode, Feature } from "@prisma/client";
+import "dotenv/config";
+import type { AccessMode, Feature } from "../src/generated/prisma/enums";
 import { prisma } from "../src/lib/prisma";
 import {
   getFeatureState,

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { ANIMAL_TYPES, GATHERING_POINTS, gatheringPointLabel } from "@/lib/constants";
-import type { AnimalType } from "@prisma/client";
+import type { AnimalType } from "@/generated/prisma/enums";
 import ScheduleRow from "@/app/supervisor/ScheduleRow";
 import MapLink from "@/app/supervisor/MapLink";
 import AssignControl from "./AssignControl";

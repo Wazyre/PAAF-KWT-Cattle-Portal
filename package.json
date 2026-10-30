@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "prisma generate && next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "start:local": "node scripts/run-local.mjs",
+    "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
@@ -15,13 +16,13 @@
     "export": "tsx scripts/export.ts",
     "db:backfill-flags": "tsx scripts/backfill-flags.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
-    "@prisma/client": "5.22.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "17.4.2",
     "leaflet": "1.9.4",
     "next": "16.4.3",
+    "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-leaflet": "5.0.0"
@@ -29,11 +30,12 @@
   "devDependencies": {
     "@types/leaflet": "1.9.22",
     "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "autoprefixer": "10.6.2",
     "postcss": "8.5.32",
-    "prisma": "5.22.0",
+    "prisma": "7.10.1",
     "tailwindcss": "3.4.19",
     "tsx": "4.23.15",
     "typescript": "5.9.3"

@@ -41,7 +41,7 @@ if errorlevel 1 (
   echo  Do ONE of these, then run this file again:
   echo    A. Install Docker Desktop ^(https://www.docker.com/products/docker-desktop^),
   echo       open it and wait until it says "Engine running".
-  echo    B. Install Node.js 18+ ^(https://nodejs.org^) and PostgreSQL
+  echo    B. Install Node.js 20.19+ ^(https://nodejs.org^) and PostgreSQL
   echo       ^(https://www.postgresql.org/download/windows/^).
   echo.
   pause

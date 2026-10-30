@@ -13,7 +13,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ -z "$DOCKER" ]; then
-  # No usable Docker: run on the PostgreSQL installed on this machine (needs Node.js 18+).
+  # No usable Docker: run on the PostgreSQL installed on this machine (needs Node.js 20.19+).
   if command -v node >/dev/null 2>&1; then
     echo "Docker is not available (not installed, or not running)."
     echo "Using the PostgreSQL installed on this computer instead."
@@ -23,7 +23,7 @@ if [ -z "$DOCKER" ]; then
   fi
   if command -v docker >/dev/null 2>&1; then
     echo "Docker is installed but not running, and Node.js was not found."
-    echo "Start Docker ('sudo systemctl start docker') or install Node.js 18+ and PostgreSQL, then run this again."
+    echo "Start Docker ('sudo systemctl start docker') or install Node.js 20.19+ and PostgreSQL, then run this again."
     exit 1
   fi
   echo "Docker is not installed (and neither is Node.js, which would allow running without it)."

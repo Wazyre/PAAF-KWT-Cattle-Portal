@@ -1,5 +1,5 @@
 // CSV export "macros" (not-declared, declared, low heads, approved audits, audit data), shared by `npm run export` and /api/export/[macro].
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./prisma";
 import { toCsv, type CsvCell } from "./csv";
 import { totalHeads } from "./heads";

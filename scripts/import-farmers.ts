@@ -1,4 +1,5 @@
 // CLI to import a farmer list (civil ID + name) into the Citizen table. Run via `npm run import:farmers -- <file.csv>`.
+import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { prisma } from "../src/lib/prisma";
 import { parseCsv } from "../src/lib/csv";

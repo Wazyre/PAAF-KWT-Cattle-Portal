@@ -3,7 +3,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { ViolationStatus, AnimalType, VisitFailureReason } from "@prisma/client";
+import type { ViolationStatus, AnimalType, VisitFailureReason } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { processChipFile } from "@/lib/chips";
 import { parseLatLng, isShortLink, expandShortLink } from "@/lib/geo";

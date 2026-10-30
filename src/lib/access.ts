@@ -1,6 +1,6 @@
 // Feature switches for the farmer portal (new registrations / updates to existing declarations).
 // Managed from the CLI with `npm run access`; read here on every request, so changes apply instantly.
-import type { AccessMode, Feature } from "@prisma/client";
+import type { AccessMode, Feature } from "@/generated/prisma/enums";
 import { prisma } from "./prisma";
 
 export interface FeatureAccessState {

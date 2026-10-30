@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:24-slim
 
 # Prisma's query engine needs OpenSSL.
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -16,4 +16,4 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Create/upgrade the DB tables, then serve. Safe to repeat on every start.
-CMD ["sh", "-c", "npx prisma db push --skip-generate && npm run start"]
+CMD ["sh", "-c", "npx prisma db push && npm run start"]

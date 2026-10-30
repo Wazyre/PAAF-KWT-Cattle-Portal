@@ -1,4 +1,5 @@
 // Recomputes Declaration.lowHeadCount for every declaration. Run via `npm run db:backfill-flags` after changing LOW_HEAD_THRESHOLD or deploying the flag.
+import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
 import { isLowHeadCount, totalHeads } from "../src/lib/heads";
 

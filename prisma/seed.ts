@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import "dotenv/config";
+import { prisma } from "../src/lib/prisma";
 
 // Test citizens. Civil ID format: 12 digits (Kuwait civil number).
 const citizens = [

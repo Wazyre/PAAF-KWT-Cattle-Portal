@@ -3,7 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import type { AnimalType, GatheringPoint, GroupType } from "@prisma/client";
+import type { AnimalType, GatheringPoint, GroupType } from "@/generated/prisma/enums";
 
 export interface ActionState {
   error?: string;

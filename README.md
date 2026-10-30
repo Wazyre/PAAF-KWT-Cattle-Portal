@@ -45,7 +45,7 @@ That's it. The portal restarts automatically with the computer, and data is kept
 
 **Linux:** open a terminal in the project folder and run `./start-sheep-portal.sh` (if it isn't executable, run `bash start-sheep-portal.sh`). If Docker isn't installed, the script offers to install it. Equivalents: `./stop-sheep-portal.sh` and `./import-farmers.sh farmers.csv`. On macOS, `docker compose up -d --build` does the same thing.
 
-**No Docker?** The same launchers automatically fall back to a PostgreSQL server installed on the computer (nothing else to configure). It needs [Node.js 18+](https://nodejs.org) and [PostgreSQL](https://www.postgresql.org/download/) running on port 5432. On first run it asks once for the PostgreSQL admin ("postgres") password to create the `sheep` user and `sheep_portal` database, installs dependencies, builds the site and opens the browser. Differences from the Docker mode:
+**No Docker?** The same launchers automatically fall back to a PostgreSQL server installed on the computer (nothing else to configure). It needs [Node.js 20.19+](https://nodejs.org) and [PostgreSQL](https://www.postgresql.org/download/) running on port 5432. On first run it asks once for the PostgreSQL admin ("postgres") password to create the `sheep` user and `sheep_portal` database, installs dependencies, builds the site and opens the browser. Differences from the Docker mode:
 
 - The portal runs in the window that opens; closing the window (or Ctrl+C) stops it. It does not start by itself after a restart.
 - After updating the project files, run the launcher again; it rebuilds automatically when the code changed.
@@ -58,7 +58,7 @@ Demo citizens/supervisors are *not* loaded in this mode. To add them: `docker co
 
 ## 3b. Developer setup (≈15 minutes)
 
-Prerequisites: Node 18+, Docker Desktop, Git.
+Prerequisites: Node 20.19+, Docker Desktop, Git.
 
 ```bash
 git clone <repo>
@@ -66,9 +66,10 @@ cd "Sheep Portal"
 cp .env.example .env              # uses 127.0.0.1, not localhost — see §10
 docker compose up -d db           # starts only Postgres on :5432 (plain `up` also runs the app on :3000)
 npm install
-npx prisma db push                # creates the schema in the running DB
+npm run db:generate                # generates the Prisma client into src/generated (git-ignored)
+npm run db:push                   # creates the schema in the running DB
 npm run db:seed                   # adds the demo citizens & supervisors
-npm run dev                       # http://localhost:3000
+npm run dev                       # http://localhost:3000 (also re-generates the client)
 ```
 
 **Demo credentials** (from `prisma/seed.ts`):
@@ -220,6 +221,7 @@ npm run dev          # next dev with hot reload
 npm run build        # prisma generate + next build
 npm run start        # production server (run build first)
 
+npm run db:generate  # regenerate the Prisma client (after changing schema.prisma)
 npm run db:push      # push schema.prisma to the DB (no migration history)
 npm run db:seed      # tsx prisma/seed.ts — adds demo citizens & supervisors
 npm run db:reset     # prisma migrate reset --force — DESTRUCTIVE, dev only

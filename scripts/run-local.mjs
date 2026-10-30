@@ -1,7 +1,7 @@
 // Runs the portal WITHOUT Docker, against a PostgreSQL server installed on this machine.
 // Used by the start launchers when Docker is not found. Usage: node scripts/run-local.mjs [--no-open]
 //
-// Needs: Node 18+ and a running PostgreSQL. It creates the "sheep" database user and
+// Needs: Node 20.19+ and a running PostgreSQL. It creates the "sheep" database user and
 // "sheep_portal" database if missing (asking for the PostgreSQL admin password if required),
 // installs dependencies, builds the site when sources changed, then serves it in the foreground.
 // Closing the window / Ctrl+C stops the portal. Set PORT to change the port (default 3000).
@@ -236,6 +236,16 @@ function ensureDependencies() {
   writeFileSync(stamp, hash);
 }
 
+// The Prisma client is generated into src/generated (git-ignored): create it on first run and after
+// the schema, config or dependencies change.
+function ensureClientGenerated() {
+  const generated = mtime(join("src", "generated", "prisma", "client.ts"));
+  const inputs = [join("prisma", "schema.prisma"), "prisma.config.ts", "package-lock.json"];
+  if (generated && !inputs.some((p) => mtime(p) > generated)) return;
+  step("Generating the database client");
+  runNode(PRISMA_BIN, ["generate"], "Generating the database client");
+}
+
 function newestMtime(path) {
   if (!existsSync(path)) return 0;
   const st = statSync(path);
@@ -248,7 +258,7 @@ function buildIsStale() {
   if (!built) return true;
   const inputs = [
     "src", "public", join("prisma", "schema.prisma"), "package.json", "package-lock.json",
-    "next.config.mjs", "tailwind.config.ts", "postcss.config.mjs", "tsconfig.json",
+    "next.config.mjs", "tailwind.config.ts", "postcss.config.mjs", "tsconfig.json", "prisma.config.ts",
   ];
   return inputs.some((p) => newestMtime(p) > built);
 }
@@ -272,28 +282,32 @@ async function isUp() {
 }
 
 async function main() {
-  if (Number(process.versions.node.split(".")[0]) < 18) die(`Node.js 18 or newer is required (found ${process.versions.node}).`);
+  const [major, minor] = process.versions.node.split(".").map(Number);
+  if (major < 20 || (major === 20 && minor < 19)) die(`Node.js 20.19 or newer is required (found ${process.versions.node}).`);
 
-  await ensureDatabase();
-  ensureDependencies();
-
-  step("Preparing database tables");
-  runNode(PRISMA_BIN, ["db", "push", "--skip-generate"], "Creating the database tables");
-
-  if (buildIsStale()) {
-    step("Building the site (about a minute)");
-    runNode(PRISMA_BIN, ["generate"], "Generating the database client");
-    runNode(NEXT_BIN, ["build"], "Building the site");
-  }
-
+  // Check this first: installing or rebuilding underneath a running portal breaks it (on Windows the
+  // running server even locks Prisma's files, so the install fails halfway).
   const url = `http://localhost:${PORT}`;
   if (await tcpOpen("127.0.0.1", PORT)) {
     if (await isUp()) {
       console.log(`\nSheep Portal is already running at ${url}`);
+      console.log("To apply an update, close the window it runs in (or press Ctrl+C there) and run this again.");
       openBrowser(url);
       return;
     }
     die(`Port ${PORT} is in use by another program. Close it, or run with a different port (set PORT=3001).`);
+  }
+
+  await ensureDatabase();
+  ensureDependencies();
+  ensureClientGenerated();
+
+  step("Preparing database tables");
+  runNode(PRISMA_BIN, ["db", "push"], "Creating the database tables");
+
+  if (buildIsStale()) {
+    step("Building the site (about a minute)");
+    runNode(NEXT_BIN, ["build"], "Building the site");
   }
 
   step(`Starting Sheep Portal on ${url}`);

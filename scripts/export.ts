@@ -1,4 +1,5 @@
 // CLI to export data as CSV files. Run via `npm run export -- <macro|all|list> [--dir <folder>]`.
+import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { prisma } from "../src/lib/prisma";

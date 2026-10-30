@@ -35,15 +35,15 @@ The user interface is in Arabic with `dir="rtl"` set at the root. The applicatio
 
 | Layer        | Technology                                  | Version    |
 | ------------ | ------------------------------------------- | ---------- |
-| Runtime      | Node.js                                     | ≥ 18       |
-| Framework    | Next.js (App Router, Server Actions)        | 14.2.18    |
-| Language     | TypeScript                                  | 5.6.3      |
-| UI runtime   | React                                       | 18.3.1     |
-| Styling      | Tailwind CSS                                | 3.4.14     |
+| Runtime      | Node.js                                     | ≥ 20.19    |
+| Framework    | Next.js (App Router, Server Actions, Turbopack) | 16.4.3 |
+| Language     | TypeScript                                  | 5.9.3      |
+| UI runtime   | React                                       | 19.3.1     |
+| Styling      | Tailwind CSS                                | 3.4.19     |
 | Typography   | `next/font/google` — Cairo                  | —          |
-| ORM          | Prisma + `@prisma/client`                   | 5.22.0     |
+| ORM          | Prisma + `@prisma/client` + `@prisma/adapter-pg` (pg driver) | 7.10.1 |
 | Database     | PostgreSQL (Docker image `postgres:16-alpine`) | 16     |
-| Maps         | Leaflet + react-leaflet + OpenStreetMap tiles | 1.9.4 / 4.2.1 |
+| Maps         | Leaflet + react-leaflet + OpenStreetMap tiles | 1.9.4 / 5.0.0 |
 | Build tools  | `tsx` (seed runner), PostCSS, Autoprefixer  | —          |
 
 ## 3. Configuration
@@ -100,6 +100,8 @@ src/
 prisma/
   schema.prisma                     Database schema
   seed.ts                           Demo citizens + supervisors
+prisma.config.ts                    Prisma 7 config: schema path, seed command, DATABASE_URL for the CLI
+src/generated/prisma/               Generated Prisma client (git-ignored; created by `npm run db:generate`, `dev` and `build`)
 public/
   logo.png                          Authority logo
   sample-chip-readings.txt          Sample chip-reading file
@@ -113,7 +115,7 @@ tsconfig.json                       Strict TypeScript config
 
 ## 5. Domain model
 
-Defined in `prisma/schema.prisma`. PostgreSQL provider; Prisma client generated to default location.
+Defined in `prisma/schema.prisma`. PostgreSQL provider; the Prisma client is generated into `src/generated/prisma` (git-ignored) by the `prisma-client` generator. The connection URL is not in the schema: the CLI reads it from `prisma.config.ts`, the app from `DATABASE_URL` via the driver adapter.
 
 ### Entities
 
@@ -293,7 +295,7 @@ Downloads one CSV export (UTF-8 with BOM, CRLF). Macro names are listed under *D
 
 ### `src/lib/prisma.ts`
 
-Exports a singleton `prisma` instance of `PrismaClient`. In non-production environments the instance is cached on `globalThis` to survive Next.js hot reload.
+Exports a singleton `prisma` instance of `PrismaClient`, built on the `pg` driver adapter (`@prisma/adapter-pg`, required since Prisma 7). The `?schema=` part of `DATABASE_URL` is passed to the adapter rather than to `pg`. With no `DATABASE_URL` (e.g. during `next build`) the pool is created but never connects. In non-production environments the instance is cached on `globalThis` to survive Next.js hot reload. Standalone scripts import `dotenv/config` first because Prisma 7 no longer loads `.env` itself.
 
 ### `src/lib/identity.ts`
 
@@ -455,10 +457,12 @@ Scripts from `package.json`:
 | Script              | Command                          | Purpose                                       |
 | ------------------- | -------------------------------- | --------------------------------------------- |
 | `npm run dev`       | `next dev`                       | Dev server with hot reload.                   |
+| `npm run dev`       | `prisma generate && next dev`    | Dev server with hot reload (regenerates the client first). |
 | `npm run build`     | `prisma generate && next build`  | Production build.                             |
 | `npm run start`     | `next start`                     | Run the production build.                     |
 | `npm run start:local` | `node scripts/run-local.mjs`   | Docker-free launcher: set up DB on local PostgreSQL, build if stale, serve. |
-| `npm run db:push`   | `prisma db push`                 | Push `schema.prisma` to the database.         |
+| `npm run db:generate` | `prisma generate`              | Regenerate the Prisma client into `src/generated/prisma`. |
+| `npm run db:push`   | `prisma db push`                 | Push `schema.prisma` to the database (no longer generates the client). |
 | `npm run db:seed`   | `tsx prisma/seed.ts`             | Insert demo citizens and supervisors.         |
 | `npm run db:reset`  | `prisma migrate reset --force`   | Drop and recreate the schema; reseed.         |
 | `npm run access`    | `tsx scripts/access.ts`          | Toggle farmer registration / updates.         |
@@ -504,7 +508,7 @@ Loads a farmer list into the `Citizen` table (the identity lookup, so imported f
 
 Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. There is no authentication on any portal, including these downloads.
 
-The `prisma.seed` field in `package.json` is set so `prisma migrate reset` runs the seed automatically.
+The seed command is set in `prisma.config.ts` (`migrations.seed`); run it with `npm run db:seed`. Prisma 7 no longer seeds automatically after `prisma migrate reset`.
 
 There is no automated test suite. Type-checking is available via `npx tsc --noEmit`.
 

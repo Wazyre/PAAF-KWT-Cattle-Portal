@@ -2,7 +2,7 @@
 // Server action that creates or revises a farmer declaration (stores prior version in DeclarationRevision).
 
 import { redirect } from "next/navigation";
-import type { GatheringPoint, AnimalType } from "@prisma/client";
+import type { GatheringPoint, AnimalType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { resolveIdentity } from "@/lib/identity";
 import {
