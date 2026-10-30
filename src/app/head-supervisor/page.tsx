@@ -112,11 +112,10 @@ function FarmerTable({
 }
 
 // Head supervisor dashboard: groups farmers by gathering point into small-group vs solo, and renders assignment controls per group.
-export default async function HeadSupervisorPage({
-  searchParams
-}: {
-  searchParams: { type?: string };
+export default async function HeadSupervisorPage(props: {
+  searchParams: Promise<{ type?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const rawType = searchParams.type ?? "";
   const selectedType = (
     VALID_TYPES.has(rawType) ? rawType : ANIMAL_TYPES[0].value

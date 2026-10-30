@@ -51,16 +51,17 @@ function computeMultipleChipsCount(readings: { readAt: Date; flaggedSymbol: bool
 
 // Loads the declaration with its audit, computes proximity and male-ratio alerts, renders saved readings, and mounts the AuditForm.
 export default async function AuditPageContent({
-  params,
-  searchParams,
   backHref,
-  headSupervisorMode = false
+  headSupervisorMode = false,
+  ...props
 }: {
-  params: { id: string };
-  searchParams: { saved?: string; animalType?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string; animalType?: string }>;
   backHref: string;
   headSupervisorMode?: boolean;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const id = Number(params.id);
   if (!Number.isInteger(id)) return <NotFoundCard backHref={backHref} />;
 

@@ -92,11 +92,10 @@ function FarmerTable({
 }
 
 // Supervisor portal: Civil-ID login form, then the list of groups assigned to that supervisor with their visit dates.
-export default async function SupervisorPage({
-  searchParams
-}: {
-  searchParams: { civilId?: string; type?: string };
+export default async function SupervisorPage(props: {
+  searchParams: Promise<{ civilId?: string; type?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const civilId = (searchParams.civilId ?? "").trim();
 
   if (!civilId) {

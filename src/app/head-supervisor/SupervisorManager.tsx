@@ -1,7 +1,8 @@
 "use client";
 // Roster management for supervisors: list with delete buttons and an inline add form (Civil ID + name).
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { addSupervisor, removeSupervisor, type ActionState } from "./actions";
 
 // Submit button for the add-supervisor form, showing a pending label via useFormStatus.
@@ -24,7 +25,7 @@ export default function SupervisorManager({
 }: {
   supervisors: { id: number; name: string; civilId: string }[];
 }) {
-  const [state, addAction] = useFormState<ActionState, FormData>(addSupervisor, {});
+  const [state, addAction] = useActionState<ActionState, FormData>(addSupervisor, {});
 
   return (
     <div className="card space-y-4">

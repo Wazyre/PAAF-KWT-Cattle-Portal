@@ -8,8 +8,8 @@ export default async function HeadAuditPage({
   params,
   searchParams
 }: {
-  params: { id: string };
-  searchParams: { saved?: string; animalType?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string; animalType?: string }>;
 }) {
   return (
     <AuditPageContent

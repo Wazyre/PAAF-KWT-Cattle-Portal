@@ -16,13 +16,12 @@ export const dynamic = "force-dynamic";
 const VALID_TYPES = new Set<string>(ANIMAL_TYPES.map((a) => a.value));
 
 // Print-ready audit report: declaration view, proximity alerts, per-site audit results, and signature lines.
-export default async function PrintPage({
-  params,
-  searchParams
-}: {
-  params: { id: string };
-  searchParams: { animalType?: string };
+export default async function PrintPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ animalType?: string }>;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const id = Number(params.id);
   if (!Number.isInteger(id)) {
     return <div className="danger-box">معاملة غير صالحة.</div>;

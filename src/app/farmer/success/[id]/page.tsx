@@ -7,13 +7,12 @@ import { IconCheckCircle } from "@/components/icons";
 export const dynamic = "force-dynamic";
 
 // Confirmation page after submitting or updating a declaration; surfaces the transaction number.
-export default async function SuccessPage({
-  params,
-  searchParams
-}: {
-  params: { id: string };
-  searchParams: { updated?: string };
+export default async function SuccessPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ updated?: string }>;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
   const decl = await prisma.declaration.findUnique({ where: { id } });

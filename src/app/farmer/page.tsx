@@ -9,11 +9,10 @@ import LegalGate from "./LegalGate";
 export const dynamic = "force-dynamic";
 
 // Renders the Civil-ID gate, or the prefilled declaration form once identity is resolved.
-export default async function FarmerPage({
-  searchParams
-}: {
-  searchParams: { civilId?: string };
+export default async function FarmerPage(props: {
+  searchParams: Promise<{ civilId?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const civilId = (searchParams.civilId ?? "").trim();
   const identity = civilId ? await resolveIdentity(civilId) : null;
 

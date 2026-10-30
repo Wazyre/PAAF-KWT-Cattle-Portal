@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 // Streams the requested export as an attachment; 404 for an unknown macro name.
 export async function GET(
   _req: Request,
-  { params }: { params: { macro: string } }
+  { params }: { params: Promise<{ macro: string }> }
 ) {
-  const macro = findMacro(params.macro);
+  const { macro: macroName } = await params;
+  const macro = findMacro(macroName);
   if (!macro) {
     return NextResponse.json({ error: "unknown export" }, { status: 404 });
   }
