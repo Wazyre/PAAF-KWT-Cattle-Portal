@@ -3,18 +3,11 @@ setlocal
 cd /d "%~dp0"
 title Sheep Portal
 
+rem Use Docker when it is installed AND running; otherwise fall back to local PostgreSQL.
 where docker >nul 2>&1
 if errorlevel 1 goto nodocker
-
 docker info >nul 2>&1
-if errorlevel 1 (
-  echo.
-  echo  Docker Desktop is not running.
-  echo  Open Docker Desktop, wait until it says "Engine running", then run this file again.
-  echo.
-  pause
-  exit /b 1
-)
+if errorlevel 1 goto nodocker
 
 echo Starting Sheep Portal. The first run takes a few minutes...
 docker compose up -d --build
@@ -44,14 +37,21 @@ exit /b 0
 where node >nul 2>&1
 if errorlevel 1 (
   echo.
-  echo  Docker was not found, and neither was Node.js. Install ONE of these, then run this file again:
-  echo    A. Docker Desktop:  https://www.docker.com/products/docker-desktop
-  echo    B. Node.js 18+ ^(https://nodejs.org^) and PostgreSQL ^(https://www.postgresql.org/download/windows/^)
+  echo  Docker is not installed or not running, and Node.js was not found either.
+  echo  Do ONE of these, then run this file again:
+  echo    A. Install Docker Desktop ^(https://www.docker.com/products/docker-desktop^),
+  echo       open it and wait until it says "Engine running".
+  echo    B. Install Node.js 18+ ^(https://nodejs.org^) and PostgreSQL
+  echo       ^(https://www.postgresql.org/download/windows/^).
   echo.
   pause
   exit /b 1
 )
-echo Docker was not found. Using the PostgreSQL installed on this computer instead.
+echo Docker is not available ^(not installed, or not running^).
+echo Using the PostgreSQL installed on this computer instead.
+echo If you normally use Docker, close this window, start Docker Desktop, wait for
+echo "Engine running", and run this file again to see your Docker data.
+echo.
 node scripts\run-local.mjs
 set code=%errorlevel%
 if not "%code%"=="0" pause

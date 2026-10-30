@@ -1,26 +1,37 @@
 #!/usr/bin/env bash
-# Starts the Sheep Portal (installs Docker first if it is missing). Safe to run repeatedly.
+# Starts the Sheep Portal with Docker, or with the local PostgreSQL if Docker is not available.
+# Safe to run repeatedly.
 set -e
 cd "$(dirname "$0")"
 
-if ! command -v docker >/dev/null 2>&1; then
-  # No Docker: run on the PostgreSQL installed on this machine (needs Node.js 18+).
+# Pick a working Docker command (plain, then sudo). Empty if Docker is missing or not running.
+DOCKER=""
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then DOCKER="docker"
+  elif sudo docker info >/dev/null 2>&1; then DOCKER="sudo docker"
+  fi
+fi
+
+if [ -z "$DOCKER" ]; then
+  # No usable Docker: run on the PostgreSQL installed on this machine (needs Node.js 18+).
   if command -v node >/dev/null 2>&1; then
-    echo "Docker was not found. Using the PostgreSQL installed on this computer instead."
+    echo "Docker is not available (not installed, or not running)."
+    echo "Using the PostgreSQL installed on this computer instead."
+    echo "If you normally use Docker, stop here (Ctrl+C), start it with 'sudo systemctl start docker' and run this again."
+    echo
     exec node scripts/run-local.mjs
   fi
+  if command -v docker >/dev/null 2>&1; then
+    echo "Docker is installed but not running, and Node.js was not found."
+    echo "Start Docker ('sudo systemctl start docker') or install Node.js 18+ and PostgreSQL, then run this again."
+    exit 1
+  fi
   echo "Docker is not installed (and neither is Node.js, which would allow running without it)."
-  read -r -p "Install it now? (needs internet and sudo) [y/N] " answer
+  read -r -p "Install Docker now? (needs internet and sudo) [y/N] " answer
   [ "$answer" = "y" ] || [ "$answer" = "Y" ] || { echo "Cancelled."; exit 1; }
   curl -fsSL https://get.docker.com | sudo sh
   sudo systemctl enable --now docker
-fi
-
-# Use sudo only if the current user cannot talk to Docker directly.
-DOCKER="docker"
-if ! docker info >/dev/null 2>&1; then
   DOCKER="sudo docker"
-  $DOCKER info >/dev/null 2>&1 || { echo "Docker is installed but not running. Try: sudo systemctl start docker"; exit 1; }
 fi
 
 echo "Starting Sheep Portal. The first run takes a few minutes..."
