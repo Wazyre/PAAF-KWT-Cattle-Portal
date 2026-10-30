@@ -119,7 +119,7 @@ export default async function SupervisorPage(props: {
                 placeholder="XXXXXXXXXXXX"
                 required
                 autoFocus
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gov focus:outline-none"
+                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-gov focus:outline-hidden"
               />
             </div>
             <button type="submit" className="btn-primary w-full">

@@ -12,7 +12,7 @@ A Kuwait-government Arabic (RTL), server-side-rendered, mobile-friendly portal f
 | Field supervisor    | `/supervisor`     | Inspectors audit a declaration: chip-reading files, violation status, manual recounts.  |
 | Head supervisor     | `/head-supervisor`| Manages the supervisor roster and assigns audit groups to specific supervisors.         |
 
-All UI is Arabic, `dir="rtl"`, with the Cairo font and a Kuwait-government palette (`gov`, `gov-dark`, `gov-light` in `tailwind.config.ts`). The DB stores ASCII enum values; Arabic labels live in one place: `src/lib/constants.ts`.
+All UI is Arabic, `dir="rtl"`, with the Cairo font and a Kuwait-government palette (`gov`, `gov-dark`, `gov-light` in the `@theme` block of `src/app/globals.css`). The DB stores ASCII enum values; Arabic labels live in one place: `src/lib/constants.ts`.
 
 ---
 

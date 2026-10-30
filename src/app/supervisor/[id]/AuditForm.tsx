@@ -382,7 +382,7 @@ export default function AuditForm({
                             <span className="text-red-600 font-semibold">يوجد قراءات مُنبَّه عليها</span>
                           )}
                         </div>
-                        <div className="max-h-64 overflow-y-auto rounded border border-gray-200">
+                        <div className="max-h-64 overflow-y-auto rounded-sm border border-gray-200">
                           <table className="w-full border-collapse text-xs">
                             <thead className="sticky top-0 bg-gov-light">
                               <tr className="text-gov-dark">
@@ -452,7 +452,7 @@ export default function AuditForm({
                           type="number"
                           min={0}
                           name={`doesntBelongManual_${type}_${siteIndex}`}
-                          className="w-20 rounded border border-gray-300 px-2 py-1 text-center text-sm"
+                          className="w-20 rounded-sm border border-gray-300 px-2 py-1 text-center text-sm"
                           value={doesntBelongManuals[previewKey] ?? ""}
                           onChange={(e) =>
                             setDoesntBelongManuals(prev => ({ ...prev, [previewKey]: e.target.value }))

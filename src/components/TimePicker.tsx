@@ -89,7 +89,7 @@ export default function TimePicker({
                 <div className="mb-1 text-center text-[11px] font-semibold text-gray-500">
                   {col.label}
                 </div>
-                <div className="h-40 overflow-y-auto rounded border border-gray-100">
+                <div className="h-40 overflow-y-auto rounded-sm border border-gray-100">
                   {Array.from({ length: col.range }, (_, n) => {
                     const isSel = col.val === n;
                     return (

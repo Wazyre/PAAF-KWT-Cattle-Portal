@@ -69,7 +69,7 @@ export default function SupervisorManager({
             inputMode="numeric"
             maxLength={12}
             placeholder="XXXXXXXXXXXX"
-            className="w-40 rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-gov focus:outline-none"
+            className="w-40 rounded-sm border border-gray-300 px-3 py-1.5 text-sm focus:border-gov focus:outline-hidden"
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -78,7 +78,7 @@ export default function SupervisorManager({
             name="name"
             type="text"
             placeholder="اسم المفتش"
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-gov focus:outline-none"
+            className="rounded-sm border border-gray-300 px-3 py-1.5 text-sm focus:border-gov focus:outline-hidden"
           />
         </div>
         <AddButton />

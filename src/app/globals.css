@@ -1,6 +1,61 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-gov: #0a6b3c;
+  --color-gov-dark: #075030;
+  --color-gov-light: #e6f2ec;
+
+  --font-sans: var(--font-arabic), system-ui, sans-serif;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/*
+  Tailwind 4 puts space-y-* margins below every child except the last; Tailwind 3 put them above every
+  child except the first. Around inline elements the two differ by a few pixels, so keep the v3 behaviour
+  (unlayered, so it wins over the utilities) to leave the existing design unchanged.
+*/
+.space-y-0\.5 > :not(:last-child) { margin-block-end: 0; }
+.space-y-0\.5 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 0.5); }
+.space-y-1 > :not(:last-child) { margin-block-end: 0; }
+.space-y-1 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 1); }
+.space-y-2 > :not(:last-child) { margin-block-end: 0; }
+.space-y-2 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 2); }
+.space-y-3 > :not(:last-child) { margin-block-end: 0; }
+.space-y-3 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 3); }
+.space-y-4 > :not(:last-child) { margin-block-end: 0; }
+.space-y-4 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 4); }
+.space-y-5 > :not(:last-child) { margin-block-end: 0; }
+.space-y-5 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 5); }
+.space-y-6 > :not(:last-child) { margin-block-end: 0; }
+.space-y-6 > :not(:first-child) { margin-block-start: calc(var(--spacing) * 6); }
+
+/* Tailwind 4's reset strips the native look of the file input's button; keep the browser default. */
+input[type="file"]::file-selector-button {
+  margin-inline-end: 4px;
+  border: 2px outset ButtonBorder;
+  border-radius: 3px;
+  background-color: ButtonFace;
+  padding: 1px 6px;
+  font: inherit;
+  color: inherit;
+}
 
 :root {
   color-scheme: light;
@@ -17,7 +72,7 @@ body {
 
 .field-input {
   @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base
-    outline-none focus:border-gov focus:ring-2 focus:ring-gov/30;
+    outline-hidden focus:border-gov focus:ring-2 focus:ring-gov/30;
 }
 
 .field-input:disabled,
@@ -36,7 +91,7 @@ body {
 }
 
 .card {
-  @apply rounded-xl border border-gray-200 bg-white p-5 shadow-sm;
+  @apply rounded-xl border border-gray-200 bg-white p-5 shadow-xs;
 }
 
 .warn-box {

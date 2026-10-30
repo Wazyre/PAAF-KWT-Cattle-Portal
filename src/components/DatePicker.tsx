@@ -113,7 +113,7 @@ export default function DatePicker({
             <button
               type="button"
               onClick={nextMonth}
-              className="grid h-7 w-7 place-items-center rounded hover:bg-gov-light"
+              className="grid h-7 w-7 place-items-center rounded-sm hover:bg-gov-light"
               aria-label="الشهر التالي"
             >
               ›
@@ -124,7 +124,7 @@ export default function DatePicker({
             <button
               type="button"
               onClick={prevMonth}
-              className="grid h-7 w-7 place-items-center rounded hover:bg-gov-light"
+              className="grid h-7 w-7 place-items-center rounded-sm hover:bg-gov-light"
               aria-label="الشهر السابق"
             >
               ‹

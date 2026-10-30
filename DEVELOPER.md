@@ -39,12 +39,12 @@ The user interface is in Arabic with `dir="rtl"` set at the root. The applicatio
 | Framework    | Next.js (App Router, Server Actions, Turbopack) | 16.4.3 |
 | Language     | TypeScript                                  | 5.9.3      |
 | UI runtime   | React                                       | 19.3.1     |
-| Styling      | Tailwind CSS                                | 3.4.19     |
+| Styling      | Tailwind CSS (CSS-first config, `@tailwindcss/postcss`) | 4.3.3 |
 | Typography   | `next/font/google` — Cairo                  | —          |
 | ORM          | Prisma + `@prisma/client` + `@prisma/adapter-pg` (pg driver) | 7.10.1 |
 | Database     | PostgreSQL (Docker image `postgres:16-alpine`) | 16     |
 | Maps         | Leaflet + react-leaflet + OpenStreetMap tiles | 1.9.4 / 5.0.0 |
-| Build tools  | `tsx` (seed runner), PostCSS, Autoprefixer  | —          |
+| Build tools  | `tsx` (seed runner), PostCSS (Tailwind plugin; vendor prefixes are built in) | — |
 
 ## 3. Configuration
 
@@ -92,7 +92,7 @@ src/
   app/                              Next.js App Router routes
     page.tsx                        Landing page
     layout.tsx                      Root layout (RTL <html>, header, footer)
-    globals.css                     Tailwind layers + custom utility classes
+    globals.css                     Tailwind import + `@theme` palette + custom utility classes + v3 compatibility rules
     farmer/                         Farmer declaration flow
     supervisor/                     Field-supervisor flow
     head-supervisor/                Head-supervisor flow
@@ -110,8 +110,7 @@ public/
 docker-compose.yml                  Postgres + app services
 docker-compose.dev.yml              Dev override: publish Postgres on 127.0.0.1:5432
 next.config.mjs                     Next.js config
-tailwind.config.ts                  Tailwind config (theme colors, content globs)
-postcss.config.mjs                  PostCSS plugins
+postcss.config.mjs                  PostCSS plugins (`@tailwindcss/postcss`); there is no tailwind.config.ts in Tailwind 4
 tsconfig.json                       Strict TypeScript config
 .env.example                        Sample environment file
 ```
@@ -520,7 +519,7 @@ There is no automated test suite. Type-checking is available via `npx tsc --noEm
 
 ### Tailwind
 
-`tailwind.config.ts` registers a `gov` color palette:
+The `@theme` block in `src/app/globals.css` registers a `gov` color palette (Tailwind 4 has no `tailwind.config.ts`; class names are detected automatically):
 
 | Token       | Hex       |
 | ----------- | --------- |
@@ -528,7 +527,9 @@ There is no automated test suite. Type-checking is available via `npx tsc --noEm
 | `gov-dark`  | `#075030` |
 | `gov-light` | `#e6f2ec` |
 
-`fontFamily.sans` is bound to `var(--font-arabic)` from the `next/font/google` Cairo loader in `src/app/layout.tsx`.
+`--font-sans` is bound to `var(--font-arabic)` from the `next/font/google` Cairo loader in `src/app/layout.tsx`.
+
+Tailwind 4 officially supports Chrome/Edge 111+, Safari 16.4+ and Firefox 128+ (it relies on modern CSS such as `@property` and `color-mix()`); older browsers, e.g. older iPhones, may render the portal badly. Not tested on such devices.
 
 ### Layout
 
@@ -536,7 +537,7 @@ There is no automated test suite. Type-checking is available via `npx tsc --noEm
 
 ### Global CSS
 
-`src/app/globals.css` (referenced by `layout.tsx`) defines Tailwind layers and the custom utility classes used by components (`card`, `btn-primary`, `btn-secondary`, `field-label`, `field-input`, `danger-box`, `no-print`).
+`src/app/globals.css` (referenced by `layout.tsx`) imports Tailwind, defines the custom utility classes used by components (`card`, `btn-primary`, `btn-secondary`, `field-label`, `field-input`, `danger-box`, `no-print`), and holds three compatibility rules that keep the Tailwind 3 look after the upgrade: the default border colour (`gray-200`), `space-y-*` margins above (not below) siblings, and the native look of the file input's button. Delete them only after re-checking the pages visually (e.g. the supervisor audit form).
 
 ## 14. Static assets
 

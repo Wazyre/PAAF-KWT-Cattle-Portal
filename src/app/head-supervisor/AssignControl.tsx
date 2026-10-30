@@ -50,7 +50,7 @@ export default function AssignControl({
           setSupervisorId(e.target.value);
           submit();
         }}
-        className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gov focus:outline-none disabled:opacity-60"
+        className="rounded-sm border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gov focus:outline-hidden disabled:opacity-60"
       >
         <option value="">— غير مُسنَد —</option>
         {supervisors.map((s) => (
@@ -68,7 +68,7 @@ export default function AssignControl({
           setScheduledDate(e.target.value);
           if (supervisorId !== "") submit();
         }}
-        className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gov focus:outline-none disabled:opacity-60"
+        className="rounded-sm border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gov focus:outline-hidden disabled:opacity-60"
       />
       {isPending && (
         <span className="text-xs text-gray-400">جارٍ الحفظ…</span>
