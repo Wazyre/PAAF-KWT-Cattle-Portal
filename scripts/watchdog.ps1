@@ -57,7 +57,7 @@ Log "Watchdog started (mode: $Mode, port: $Port)."
 # ---------------------------------------------------------------- docker mode
 
 if ($Mode -eq 'docker') {
-  function Test-Engine { & docker info 2>&1 | Out-Null; return ($LASTEXITCODE -eq 0) }
+  function Test-Engine { & cmd.exe /c 'docker info >nul 2>&1'; return ($LASTEXITCODE -eq 0) }
 
   while ($true) {
     $waited = $false

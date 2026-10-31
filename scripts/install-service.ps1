@@ -18,8 +18,11 @@ try {
   # ---- which mode? Docker if it is installed and running, otherwise the local PostgreSQL.
   $mode = 'local'
   if (Get-Command docker -ErrorAction SilentlyContinue) {
-    & docker info 2>&1 | Out-Null
+    # Through cmd: with -ErrorAction Stop, PowerShell 5.1 throws on any text a native command writes to stderr,
+    # which is exactly what a stopped or broken Docker engine does.
+    & cmd.exe /c 'docker info >nul 2>&1'
     if ($LASTEXITCODE -eq 0) { $mode = 'docker' }
+    else { Write-Host 'Docker is installed but its engine is not usable, so the local PostgreSQL will be used.' -ForegroundColor Yellow }
   }
   $nodePath = ''
   if ($mode -eq 'local') {
