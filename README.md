@@ -56,6 +56,44 @@ Demo citizens/supervisors are *not* loaded in this mode. To add them: `docker co
 
 ---
 
+## 3a. Running as an always-on Windows service
+
+Use this when the portal lives on a Windows PC or server and another server on the network forwards your subdomain to it. Double-click **`Install Sheep Portal Service.bat`** (it asks for administrator permission) and answer two questions: the public address (for example `portal.example.gov.kw`) and the IP of the forwarding server. It then:
+
+- does the one-time setup (database, packages, build), so the unattended service never asks anything;
+- registers a **"Sheep Portal"** scheduled task that starts at boot (no one needs to log in) and runs `scripts/watchdog.ps1`;
+- opens Windows Firewall for port 3000 to that IP only;
+- registers a **"Sheep Portal Backup"** task that writes a database dump to `backups\` at 02:00 and keeps 14 days.
+
+**What the watchdog does.** It checks `/api/health` every 20 seconds. It restarts the portal if the process exits or three checks in a row fail, waits longer between attempts if it keeps failing right after starting, and clears a leftover web server if it was itself killed. If PostgreSQL is down or still starting at boot, it keeps retrying; once the database is back, the portal recovers on its own. Everything is logged in `logs\` (`watchdog.log`, `prepare.log`, one `portal-*.log` per start).
+
+**Which mode.** With Docker running when you install, it runs the containers (and starts at *your* login, because Docker Desktop only runs while someone is logged in; enable auto-login for the account if the PC reboots unattended). Otherwise it uses Node and the PostgreSQL installed on the machine and starts at boot.
+
+**The forwarding server** should send traffic to `http://<this-pc>:3000` and pass the original `Host` header (nginx: `proxy_set_header Host $host;`). If it cannot, the address you entered is saved as `ALLOWED_ORIGINS` in `.env`, which is what lets form submissions through.
+
+Day to day (PowerShell as administrator, from the project folder):
+
+```powershell
+Get-Content logs\watchdog.log -Tail 20          # what the watchdog has done
+schtasks /End /TN "Sheep Portal"                # stop (the web server stops with it)
+schtasks /Run /TN "Sheep Portal"                # start again; this also applies an update after `git pull`
+powershell -File scriptsackup.ps1 -Mode local # backup now (-Mode docker if you use Docker)
+```
+
+To update: `git pull`, then stop and start the task as above (it rebuilds when the code changed). In Docker mode run `docker compose up -d --build` instead. To remove the service, run **`Uninstall Sheep Portal Service.bat`**; the data and backups stay.
+
+Restore a backup (local mode): `pg_restore --clean --if-exists -h 127.0.0.1 -U sheep -d sheep_portal backups\<file>.dump`. Copy `backups\` to another machine regularly: a backup on the same disk does not survive losing the disk.
+
+### Security: read before exposing it
+
+- **The app has no login of its own.** `/head-supervisor` (the dashboard) and `/api/export/*` (CSV downloads of every farmer) are open to anyone who can reach the site. Protect them on the forwarding server (basic auth or an IP allow-list on those two paths).
+- **`/farmer` and `/supervisor` are open to anyone who knows a valid civil ID.** Civil IDs are not secrets, so anyone holding a farmer's ID can see and change that farmer's declaration, and anyone holding a supervisor's ID can see that supervisor's queue (farmer names, IDs and locations). Real authentication (the Sahel/PACI seam in `src/lib/identity.ts`) is needed before this holds real data.
+- There is no rate limiting, so civil IDs can be guessed by script; add it on the forwarding server.
+- The portal speaks plain HTTP. Terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above).
+- Server-side fetching of Google Maps short links is restricted to Google's own hosts.
+
+---
+
 ## 3b. Developer setup (≈15 minutes)
 
 Prerequisites: Node 20.19+, Docker Desktop, Git.

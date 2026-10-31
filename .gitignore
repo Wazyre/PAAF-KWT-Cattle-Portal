@@ -7,3 +7,5 @@ exports
 *.log
 .DS_Store
 next-env.d.ts.bak
+logs
+backups

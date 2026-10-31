@@ -1,5 +1,7 @@
 // Runs the portal WITHOUT Docker, against a PostgreSQL server installed on this machine.
-// Used by the start launchers when Docker is not found. Usage: node scripts/run-local.mjs [--no-open]
+// Used by the start launchers when Docker is not found. Usage: node scripts/run-local.mjs [--no-open] [--prepare]
+// --prepare does every setup step (database, dependencies, tables, build) and exits without serving;
+// the Windows service (scripts/watchdog.ps1) uses it so the unattended start never has to ask questions.
 //
 // Needs: Node 20.19+ and a running PostgreSQL. It creates the "sheep" database user and
 // "sheep_portal" database if missing (asking for the PostgreSQL admin password if required),
@@ -19,6 +21,7 @@ process.chdir(ROOT);
 const isWin = process.platform === "win32";
 const PORT = process.env.PORT || "3000";
 const NO_OPEN = process.argv.includes("--no-open");
+const PREPARE_ONLY = process.argv.includes("--prepare");
 const DEFAULT_URL = "postgresql://sheep:sheep@127.0.0.1:5432/sheep_portal?schema=public";
 
 const NEXT_BIN = join("node_modules", "next", "dist", "bin", "next");
@@ -308,6 +311,11 @@ async function main() {
   if (buildIsStale()) {
     step("Building the site (about a minute)");
     runNode(NEXT_BIN, ["build"], "Building the site");
+  }
+
+  if (PREPARE_ONLY) {
+    console.log("\nReady to start.");
+    return;
   }
 
   step(`Starting Sheep Portal on ${url}`);

@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://sheep:sheep@db:5432/sheep_portal?schema=public
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     ports:
       - "3000:3000"
 

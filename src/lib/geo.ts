@@ -65,20 +65,54 @@ export function parseLatLng(input: string): LatLng | null {
   return null;
 }
 
-// True if the input is a Google Maps short-link that must be expanded server-side before parsing.
-export function isShortLink(input: string): boolean {
-  return /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/i.test(input);
+// Hosts that Google Maps share links are served from. Only these are ever fetched server-side.
+const SHORT_LINK_HOSTS = new Set(["maps.app.goo.gl", "goo.gl", "g.co"]);
+
+function shortLinkUrl(input: string): URL | null {
+  try {
+    const url = new URL(input.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    if (url.username || url.password || url.port) return null;
+    if (!SHORT_LINK_HOSTS.has(url.hostname.toLowerCase())) return null;
+    if (url.hostname.toLowerCase() === "goo.gl" && !url.pathname.startsWith("/maps")) return null;
+    if (url.hostname.toLowerCase() === "g.co" && !url.pathname.startsWith("/kgs")) return null;
+    return url;
+  } catch {
+    return null;
+  }
 }
 
-/** Follow redirects on a shortened Maps link to recover the full URL. */
+// True if the input is a Google Maps short-link that must be expanded server-side before parsing.
+export function isShortLink(input: string): boolean {
+  return shortLinkUrl(input) !== null;
+}
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * Follow redirects on a shortened Maps link to recover the full URL.
+ * Only the short-link hosts are fetched: each redirect is read, not followed, so a link can never
+ * make the server request any other address. The first non-short-link Location is the result.
+ */
 export async function expandShortLink(url: string): Promise<string | null> {
+  let current = shortLinkUrl(url);
+  if (!current) return null;
   try {
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0" }
-    });
-    return res.url || null;
+    for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+      const res = await fetch(current, {
+        method: "GET",
+        redirect: "manual",
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(8000)
+      });
+      const location = res.headers.get("location");
+      if (res.status < 300 || res.status >= 400 || !location) return current.toString();
+      const next = new URL(location, current);
+      const nextShort = shortLinkUrl(next.toString());
+      if (!nextShort) return next.toString();
+      current = nextShort;
+    }
+    return null;
   } catch {
     return null;
   }

@@ -511,7 +511,7 @@ Loads a farmer list into the `Citizen` table (the identity lookup, so imported f
 | `audit-readings` | One row per chip reading with its flags (large).                                              |
 | `all-farmers`    | Master list: every imported farmer with declaration / audit / approval status.                |
 
-Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. There is no authentication on any portal, including these downloads.
+Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. There is no authentication on any portal, including these downloads. The forwarding server in front of a production deployment should lock `/head-supervisor` and `/api/export/*`; see README §3a.
 
 The seed command is set in `prisma.config.ts` (`migrations.seed`); run it with `npm run db:seed`. Prisma 7 no longer seeds automatically after `prisma migrate reset`.
 
