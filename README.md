@@ -22,7 +22,7 @@ All UI is Arabic, `dir="rtl"`, with the Cairo font and a Kuwait-government palet
 - **Prisma 5** + **PostgreSQL 16** (via Docker Compose)
 - **Tailwind CSS** for styling, **Cairo** Google font for Arabic
 - **Leaflet** + **react-leaflet** + OpenStreetMap tiles for maps
-- **TypeScript 5.6** throughout, `strict` mode
+- **TypeScript 7** throughout, `strict` mode
 - Native browser print-to-PDF for the audit report (`/supervisor/[id]/print`)
 
 There is no separate API service. Mutations go through Next.js Server Actions in `actions.ts` files colocated with their pages.

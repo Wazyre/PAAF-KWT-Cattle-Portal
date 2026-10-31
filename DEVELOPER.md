@@ -37,7 +37,7 @@ The user interface is in Arabic with `dir="rtl"` set at the root. The applicatio
 | ------------ | ------------------------------------------- | ---------- |
 | Runtime      | Node.js                                     | ≥ 20.19    |
 | Framework    | Next.js (App Router, Server Actions, Turbopack) | 16.4.3 |
-| Language     | TypeScript                                  | 5.9.3      |
+| Language     | TypeScript                                  | 7.0.2      |
 | UI runtime   | React                                       | 19.3.1     |
 | Styling      | Tailwind CSS (CSS-first config, `@tailwindcss/postcss`) | 4.3.3 |
 | Typography   | `next/font/google` — Cairo                  | —          |
@@ -84,6 +84,8 @@ The `db` service:
 ### TypeScript path alias
 
 `@/*` resolves to `src/*` (configured in `tsconfig.json`).
+
+TypeScript 7 is the native compiler. `tsc --noEmit` and `next build` type-check with it. The `next` entry under `plugins` in `tsconfig.json` is an editor language-service plugin, so editors running the native server may ignore it. This does not affect builds.
 
 ## 4. Directory layout
 
