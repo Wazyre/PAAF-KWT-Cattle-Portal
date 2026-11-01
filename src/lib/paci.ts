@@ -65,7 +65,8 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
     return { ok: false, kind: "rejected" };
   }
 
-  // PACI's reply: { SubmitResult, HasIdentity, Erorr, CivilID } ("Erorr" is PACI's spelling). Here CivilID holds the request id, the same value the callback later echoes in its own CivilID field.
+  // PACI's reply: { SubmitResult, HasIdentity, Erorr, CivilID } ("Erorr" is PACI's spelling). When the request is submitted,
+  // SubmitResult holds the request id (a GUID): the value the callback later echoes in its own CivilID field.
   let reply: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(body);
@@ -75,7 +76,9 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
   }
   const isFalse = (v: unknown) => v === false || (typeof v === "string" && v.trim().toLowerCase() === "false");
   const problem = reply.Erorr ?? reply.Error ?? reply.error;
-  const summary = `SubmitResult=${String(reply.SubmitResult)}, HasIdentity=${String(reply.HasIdentity)}${problem ? `, Erorr="${String(problem).slice(0, 120)}"` : ""}`;
+  // The request id doubles as the callback's password, so it is never logged in full.
+  const show = (v: unknown) => (typeof v === "string" && GUID.test(v) ? `${v.slice(0, 8)}…` : String(v));
+  const summary = `SubmitResult=${show(reply.SubmitResult)}, HasIdentity=${show(reply.HasIdentity)}${problem ? `, Erorr="${String(problem).slice(0, 120)}"` : ""}`;
 
   if (isFalse(reply.HasIdentity)) {
     console.error(`PACI Auth: this civil ID has no digital identity (${summary}).`);
@@ -86,14 +89,15 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
     return { ok: false, kind: "rejected" };
   }
 
-  const named = [reply.CivilID, reply.CiviID, reply.RequestID, reply.requestId].find((v) => typeof v === "string" && GUID.test(v)) as string | undefined;
-  const requestId = named ?? body.match(GUID)?.[0];
+  const fields = ["SubmitResult", "CivilID", "CiviID", "RequestID", "requestId"] as const;
+  const source = fields.find((f) => typeof reply[f] === "string" && GUID.test(reply[f] as string));
+  const requestId = source ? (reply[source] as string).match(GUID)![0] : body.match(GUID)?.[0];
   if (!requestId) {
     // Without the id PACI will use in its callback we could never match the answer to this sign-in.
     console.error(`PACI Auth answered ${res.status} without a request id (${summary}).`);
     return { ok: false, kind: "unavailable" };
   }
-  console.log(`PACI Auth accepted (HTTP ${res.status}; ${summary}); request id ${requestId.slice(0, 8)}… taken from ${named ? "the CivilID field" : "the reply text"}. Now waiting for PACI's callback.`);
+  console.log(`PACI Auth accepted (HTTP ${res.status}; ${summary}); request id ${requestId.slice(0, 8)}… taken from ${source ? `the ${source} field` : "the reply text"}. Now waiting for PACI's callback.`);
   return { ok: true, requestId: requestId.toLowerCase() };
 }
 
