@@ -7,6 +7,11 @@
 // If the answer is the same either way, paciCall only acknowledges the call and cannot be used to confirm a sign-in.
 // Settings (same as the portal): PACI_AUTH_URL, PACI_AUTH_HEADER ("Name: value"); PACI_RESULT_URL overrides the paciCall address.
 import "dotenv/config";
+import http from "node:http";
+import https from "node:https";
+import tls from "node:tls";
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const civilId = args.find((a) => /^\d{12}$/.test(a));
@@ -31,13 +36,30 @@ if (extra && extra.includes(":")) headers[extra.slice(0, extra.indexOf(":")).tri
 const stamp = (t0) => `t=${String(Math.round((Date.now() - t0) / 1000)).padStart(3)}s`;
 const short = (id) => `${id.slice(0, 8)}…`;
 
-async function post(url, body, extraHeaders = {}) {
-  try {
-    const res = await fetch(url, { method: "POST", headers: { ...headers, ...extraHeaders }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-    return `${res.status} ${(await res.text()).replace(/\s+/g, " ").slice(0, 200)}`;
-  } catch (e) {
-    return `FAILED ${e.message}${e.cause?.code ? ` (${e.cause.code})` : ""}`;
-  }
+// PAAF's e-services server sends its own certificate but not the Sectigo intermediate that signed it. Browsers fetch the
+// missing piece themselves; Node does not and fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE. certs/sectigo-dv-r36.pem is
+// that public intermediate. Certificate checking stays on: it is added to the trusted list, nothing is skipped.
+const EXTRA_CA = fileURLToPath(new URL("../certs/sectigo-dv-r36.pem", import.meta.url));
+const ca = existsSync(EXTRA_CA) ? [...tls.rootCertificates, readFileSync(EXTRA_CA, "utf8")] : undefined;
+
+function post(url, body, extraHeaders = {}) {
+  return new Promise((resolve) => {
+    const target = new URL(url);
+    const data = JSON.stringify(body);
+    const req = (target.protocol === "https:" ? https : http).request(
+      target,
+      { method: "POST", headers: { ...headers, ...extraHeaders, "Content-Length": Buffer.byteLength(data) }, ca, timeout: 15000 },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (text += chunk));
+        res.on("end", () => resolve(`${res.statusCode} ${text.replace(/\s+/g, " ").slice(0, 200)}`));
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("timed out")));
+    req.on("error", (e) => resolve(`FAILED ${e.message}${e.code ? ` (${e.code})` : ""}`));
+    req.end(data);
+  });
 }
 
 console.log(`Asking PACI to send a request to ${civilId.slice(0, 3)}*******${civilId.slice(-2)} …`);
