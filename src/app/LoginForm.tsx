@@ -162,7 +162,7 @@ export default function LoginForm({ mock }: { mock: boolean }) {
         {phase === "sending" ? "جارٍ إرسال الطلب…" : "دخول بالهوية الرقمية"}
       </button>
       <p className="text-xs text-gray-500">
-        سيصلك طلب تأكيد على تطبيق الهوية الرقمية (PACI). بعد الموافقة تُفتح لك البوابة المناسبة لحسابك تلقائياً.
+        سيصلك طلب تأكيد على تطبيق الهوية الرقمية (PACI). بعد الموافقة تُفتح لك البوابة تلقائياً.
       </p>
       {mock && (
         <p className="rounded-sm bg-amber-50 p-2 text-xs text-amber-800">
