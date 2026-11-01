@@ -63,5 +63,8 @@ export const PROXIMITY_SECONDS = 5;
 // A farmer declaring fewer heads than this (in total) is flagged Declaration.lowHeadCount.
 export const LOW_HEAD_THRESHOLD = 50;
 
+/** A farmer with more chipped heads than this at a gathering point gets a SOLO group; the rest are bundled as SMALL. */
+export const HEAD_THRESHOLD = 750;
+
 // Minimum distance between two locations declared by the same farmer for the same animal type.
 export const MIN_SITE_DISTANCE_METERS = 100;

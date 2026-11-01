@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { ViolationStatus, AnimalType, VisitFailureReason } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
+import { authorize, requireRole } from "@/lib/session";
+import { mayAudit } from "@/lib/assignments";
 import { processChipFile } from "@/lib/chips";
 import { parseLatLng, isShortLink, expandShortLink } from "@/lib/geo";
 import { VIOLATION_STATUSES, DIFFERENCE_REASONS, VISIT_FAILURE_REASONS, animalTypeLabel } from "@/lib/constants";
@@ -35,9 +37,13 @@ export async function submitAudit(
   _prev: AuditState,
   formData: FormData
 ): Promise<AuditState> {
+  const session = await requireRole("SUPERVISOR", "HEAD");
   const declarationId = Number(formData.get("declarationId"));
   if (!Number.isInteger(declarationId)) {
     return { error: "رقم المعاملة غير صالح." };
+  }
+  if (!(await mayAudit(session, declarationId))) {
+    return { error: "هذه المعاملة غير مسندة إليك." };
   }
 
   const decl = await prisma.declaration.findUnique({
@@ -303,7 +309,8 @@ export async function checkScannedElsewhere(
   declarationId: number,
   chipNumbers: string[]
 ): Promise<number> {
-  if (chipNumbers.length === 0) return 0;
+  const session = await authorize("SUPERVISOR", "HEAD");
+  if (chipNumbers.length === 0 || !session || !(await mayAudit(session, declarationId))) return 0;
   const matches = await prisma.chipReading.findMany({
     where: {
       chipNumber: { in: chipNumbers },

@@ -204,14 +204,17 @@ All page routes are server components with `export const dynamic = "force-dynami
 
 | Method | Path                              | Description                                              |
 | ------ | --------------------------------- | -------------------------------------------------------- |
-| GET    | `/`                               | Landing page with three portal cards.                    |
-| GET    | `/farmer?civilId=`                | Civil-ID gate; on success, renders `DeclarationForm`.    |
+| GET    | `/`                               | Entryway: PACI sign-in, or the signed-in person's portals. |
+| GET    | `/farmer`                         | The signed-in farmer's `DeclarationForm`.                |
 | GET    | `/farmer/success/[id]?updated=`   | Post-submit confirmation with transaction number.        |
-| GET    | `/supervisor?civilId=&type=`      | Supervisor login + assigned groups, filtered by type.    |
+| GET    | `/supervisor?type=`               | The signed-in investigator's assigned groups, by type.   |
 | GET    | `/supervisor/[id]?saved=&animalType=` | Audit page (uses `AuditPageContent`).                |
 | GET    | `/supervisor/[id]/print?animalType=` | Print-friendly audit view.                            |
 | GET    | `/head-supervisor?type=`          | Roster manager + assignment matrix.                      |
 | GET    | `/head-supervisor/[id]?saved=&animalType=` | Same audit page in `headSupervisorMode`.        |
+| POST   | `/api/auth/start`                 | Body `{civilId}`: checks the ID, asks PACI, returns an attempt token. |
+| GET    | `/api/auth/status?attempt=`       | Polled by the entryway; on approval sets the session cookie once. |
+| POST   | `/api/paci/callback`              | PACI's answer `{CivilID: <request id>, flag}`.           |
 | GET    | `/api/resolve-location?u=`        | JSON endpoint: extracts lat/lng from a pasted URL.       |
 
 ## 7. Server actions
@@ -511,7 +514,7 @@ Loads a farmer list into the `Citizen` table (the identity lookup, so imported f
 | `audit-readings` | One row per chip reading with its flags (large).                                              |
 | `all-farmers`    | Master list: every imported farmer with declaration / audit / approval status.                |
 
-Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. There is no authentication on any portal, including these downloads. The forwarding server in front of a production deployment should lock `/head-supervisor` and `/api/export/*`; see README §3a.
+Text cells starting with `=`, `+`, `-` or `@` are prefixed with `'` so spreadsheets do not run them as formulas. These downloads require a signed-in head investigator.
 
 The seed command is set in `prisma.config.ts` (`migrations.seed`); run it with `npm run db:seed`. Prisma 7 no longer seeds automatically after `prisma migrate reset`.
 
@@ -547,3 +550,12 @@ Tailwind 4 officially supports Chrome/Edge 111+, Safari 16.4+ and Firefox 128+ (
 | ------------------------------------- | --------------------------------------------------------- |
 | `public/logo.png`                     | Authority logo loaded by `BrandLogo`.                     |
 | `public/sample-chip-readings.txt`     | Nine demo chip-reading lines that exercise every rule (normal readings, proximity pairs, starred chips, out-of-window). |
+
+### Authentication (PACI)
+
+- `src/lib/roles.ts` maps a civil ID to roles from the `Citizen`, `Supervisor` and `HeadSupervisor` tables. `role-meta.ts` holds the client-safe constants.
+- `src/lib/session.ts` signs a cookie (HMAC-SHA256, 8 hours). `requireRole(...)` (pages, server actions) and `authorize(...)` (API routes) re-read the roles from the database on every check, so removing a person takes effect at once. The key is `SESSION_SECRET`, or a random one stored in `AppSecret`.
+- `src/lib/login.ts` is the state machine: `startLogin` (validate, reject unknown IDs before PACI, 30 s cooldown per civil ID, per-address limit), `applyPaciResult` (callback), `attemptStatus` (what the browser polls), `consumeApproval` (exchanges an approval for a session exactly once). Attempts live in `LoginAttempt`; the browser only ever holds the random attempt token, never PACI's request id.
+- Layouts under `farmer/`, `supervisor/` and `head-supervisor/` guard every page; every server action and API route checks again. Server actions never trust a civil ID sent by the browser: the farmer's declaration always belongs to the signed-in person.
+- `src/lib/assignments.ts` `mayAudit(session, declarationId)` decides whether an investigator may work on a declaration: it must be a SOLO assignment of theirs, or fall in one of their SMALL groups (same animal type and gathering point, at most `HEAD_THRESHOLD` chipped heads), which is exactly how their schedule is built. Heads pass. It guards the audit page, the print page, `submitAudit` and `checkScannedElsewhere`.
+- `PACI_MODE=mock` swaps the PACI call for an automatic answer after 3 seconds. See README section 3c for all settings.

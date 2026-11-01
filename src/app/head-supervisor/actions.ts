@@ -3,6 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/session";
 import type { AnimalType, GatheringPoint, GroupType } from "@/generated/prisma/enums";
 
 export interface ActionState {
@@ -11,6 +12,7 @@ export interface ActionState {
 
 // Assign or unassign a supervisor (and visit date) to a farmer group; deletes the row when no supervisor is selected.
 export async function assignGroup(formData: FormData): Promise<void> {
+  await requireRole("HEAD");
   const animalType = String(formData.get("animalType") ?? "") as AnimalType;
   const gatheringPoint = String(formData.get("gatheringPoint") ?? "") as GatheringPoint;
   const groupType = String(formData.get("groupType") ?? "") as GroupType;
@@ -54,6 +56,7 @@ export async function assignGroup(formData: FormData): Promise<void> {
 
 // Approve (approve=1) or withdraw approval (approve=0) of a declaration's audit. Saving the audit again also withdraws it.
 export async function setAuditApproval(formData: FormData): Promise<void> {
+  await requireRole("HEAD");
   const declarationId = Number(formData.get("declarationId"));
   if (!Number.isInteger(declarationId)) return;
   const approve = formData.get("approve") === "1";
@@ -72,6 +75,7 @@ export async function addSupervisor(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  await requireRole("HEAD");
   const civilId = String(formData.get("civilId") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
 
@@ -91,6 +95,7 @@ export async function addSupervisor(
 
 // Delete a supervisor by id; cascades to their assignments via the schema relation.
 export async function removeSupervisor(formData: FormData): Promise<void> {
+  await requireRole("HEAD");
   const id = Number(formData.get("supervisorId"));
   if (!Number.isFinite(id) || id <= 0) return;
   await prisma.supervisor.delete({ where: { id } });

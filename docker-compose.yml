@@ -27,6 +27,12 @@ services:
     environment:
       DATABASE_URL: postgresql://sheep:sheep@db:5432/sheep_portal?schema=public
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      PACI_MODE: ${PACI_MODE:-live}
+      PACI_AUTH_URL: ${PACI_AUTH_URL:-}
+      PACI_AUTH_HEADER: ${PACI_AUTH_HEADER:-}
+      PACI_TIMEOUT_SECONDS: ${PACI_TIMEOUT_SECONDS:-}
+      PACI_CALLBACK_SECRET: ${PACI_CALLBACK_SECRET:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     ports:
       - "3000:3000"
 

@@ -86,11 +86,57 @@ Restore a backup (local mode): `pg_restore --clean --if-exists -h 127.0.0.1 -U s
 
 ### Security: read before exposing it
 
-- **The app has no login of its own.** `/head-supervisor` (the dashboard) and `/api/export/*` (CSV downloads of every farmer) are open to anyone who can reach the site. Protect them on the forwarding server (basic auth or an IP allow-list on those two paths).
-- **`/farmer` and `/supervisor` are open to anyone who knows a valid civil ID.** Civil IDs are not secrets, so anyone holding a farmer's ID can see and change that farmer's declaration, and anyone holding a supervisor's ID can see that supervisor's queue (farmer names, IDs and locations). Real authentication (the Sahel/PACI seam in `src/lib/identity.ts`) is needed before this holds real data.
-- There is no rate limiting, so civil IDs can be guessed by script; add it on the forwarding server.
-- The portal speaks plain HTTP. Terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above).
+- **Every portal requires sign-in through PACI** (see section 3c). The farmer portal, the investigator portal, the head-investigator portal and the CSV exports each check the signed-in role on the server, so a person can only open the portal their civil ID belongs to, and a farmer only ever sees their own declaration.
+- **Investigators see only their assigned groups.** An investigator can open, save an audit for, or print only the declarations in groups the head investigator assigned to them (the same farmers their schedule lists); anything else looks like a missing record. Head investigators can open everything. One deliberate exception: an audit page lists nearby farmers' names and civil IDs in its proximity alerts, because that is how suspicious locations are caught.
+- Sign-in attempts are limited (10 per address per 10 minutes, one PACI request per civil ID per 30 seconds), but add rate limiting on the forwarding server too.
+- The portal speaks plain HTTP. Terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above). Pass `X-Forwarded-Proto: https` so the session cookie is marked Secure (or set `COOKIE_SECURE=true`).
 - Server-side fetching of Google Maps short links is restricted to Google's own hosts.
+
+---
+
+## 3c. Signing in (PACI)
+
+The home page `/` is the only entrance. A person types their civil ID, the portal asks PACI to send a confirmation request to their phone, waits for the answer, and then opens the portal that matches the ID in the database:
+
+| The civil ID is in table | Role                      | Goes to            |
+| ------------------------ | ------------------------- | ------------------ |
+| `Citizen`                | Farmer (مربّي)            | `/farmer`          |
+| `Supervisor`             | Investigator (مفتش)       | `/supervisor`      |
+| `HeadSupervisor`         | Head investigator (رئيس)  | `/head-supervisor` |
+
+An ID in more than one table gets a chooser. An ID in none is turned away **before** PACI is contacted ("not registered"), so nobody receives a request they cannot use. Other outcomes shown to the person: request refused in the app, no answer in time (default 2 minutes), PACI unavailable, PACI rejected the request, too many attempts, or a request already pending.
+
+**Before go-live, load everyone:**
+
+```bash
+npm run import:farmers -- farmers.csv     # civilId,name
+npm run import:staff   -- staff.csv       # civilId,name,role   (role: investigator | head)
+```
+
+Both accept `--dry-run`. The head investigator can also add or remove investigators in their portal.
+
+**The PACI exchange** (`src/lib/paci.ts`, `src/app/api/paci/callback/route.ts`):
+
+1. The portal POSTs `{CivilID, ServiceDescAr, ServiceDescEn, AuthReassonAR, AuthReassonEn}` to `https://kmidinteg.paaf.gov.kw/api/PACI/Auth`. PACI pushes a request to the phone.
+2. PACI POSTs the person's answer to **our callback**: `{"CivilID": "<request id>", "flag": "True" | "False"}`. The portal matches the request id to the waiting sign-in; the browser polls and is signed in the moment it is approved.
+
+Two things must be arranged with PACI/PAAF, because they cannot be tested without them:
+
+- **Register the callback URL**: `https://<your-subdomain>/api/paci/callback` must be reachable from PACI's network (the forwarding server must pass this path through). If you set `PACI_CALLBACK_SECRET`, register the URL as `.../api/paci/callback?key=<secret>`.
+- **Confirm the Auth response.** The portal assumes the Auth response contains the request id (a GUID) that PACI later sends back in the callback, and takes the first GUID it finds in the response body. If PACI answers differently, sign-in shows "PACI unavailable" and the server log prints what PACI returned.
+
+Settings in `.env` (all optional):
+
+| Variable               | Meaning                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PACI_MODE`            | `live` (default) or `mock`. **`mock` approves automatically: testing only, never on a real server.** In mock mode an ID ending in 9 is refused and one ending in 8 never answers. |
+| `PACI_AUTH_URL`        | Auth endpoint (default: the `kmidinteg` address above).                                              |
+| `PACI_AUTH_HEADER`     | A credential header if PACI requires one, as `Name: value`.                                          |
+| `PACI_TIMEOUT_SECONDS` | How long a person has to approve (default 120).                                                      |
+| `PACI_CALLBACK_SECRET` | If set, callbacks without `?key=<secret>` are rejected.                                              |
+| `SESSION_SECRET`       | Signs the session cookie. Optional: a random key is generated and kept in the database.             |
+
+For local testing without PACI, add `PACI_MODE="mock"` to `.env` (the file `.env.example` already has it). A session lasts 8 hours; the header has a sign-out button.
 
 ---
 
@@ -112,18 +158,21 @@ npm run dev                       # http://localhost:3000 (also re-generates the
 
 **Demo credentials** (from `prisma/seed.ts`):
 
-- Farmer civil IDs: try `287010112345` (عبدالله سالم أحمد) or any of the other 5.
-- Supervisor civil IDs: try `289050133211` (علي أحمد حسن) or any of the other 3.
+Use `PACI_MODE="mock"` in `.env` (section 3c), then sign in at `/` with:
 
-The head-supervisor portal at `/head-supervisor` has no login gate yet; it is open by URL. Assigning a group there is what makes it appear in a supervisor's queue.
+- Farmer: `287010112345` (عبدالله سالم أحمد) or any of the other 5.
+- Investigator: `289050133211` (علي أحمد حسن) or any of the other 3.
+- Head investigator: `280020577001` (سليمان ناصر العتيبي).
+
+Assigning a group in the head-investigator portal is what makes it appear in an investigator's queue.
 
 ---
 
 ## 4. End-to-end flow 
 
-1. **Farmer declares.** Go to `/farmer`, enter civil ID `287010112345`. The form (`src/app/farmer/DeclarationForm.tsx`) lets you add animal-type groups, then locations per group. Use a Google Maps share link in the location field; the server expands short links and extracts lat/lng (`src/lib/geo.ts`). Submit → redirected to `/farmer/success/[id]` with a transaction number.
-2. **Head supervisor assigns.** Go to `/head-supervisor`, add a supervisor if needed (`SupervisorManager`), then assign the farmer's gathering-point group (`AssignControl`) to a supervisor. Groups split into "SMALL" (≤750 head, bundled by gathering point) and "SOLO" (one farmer with >750 head).
-3. **Supervisor audits.** Go to `/supervisor`, enter the assigned supervisor's civil ID. You'll see the assigned groups; click one to open `/supervisor/[id]`. Upload `public/sample-chip-readings.txt` as the chip file, pick a violation status, save. The server parses the chip file (`src/lib/chips.ts`), keeps only readings inside the start/end window, flags rule violations, and persists via `submitAudit`.
+1. **Farmer declares.** Sign in at `/` with civil ID `287010112345` (you land on `/farmer`). The form (`src/app/farmer/DeclarationForm.tsx`) lets you add animal-type groups, then locations per group. Use a Google Maps share link in the location field; the server expands short links and extracts lat/lng (`src/lib/geo.ts`). Submit → redirected to `/farmer/success/[id]` with a transaction number.
+2. **Head supervisor assigns.** Sign in as the head investigator (`280020577001`) and open `/head-supervisor`; add a supervisor if needed (`SupervisorManager`), then assign the farmer's gathering-point group (`AssignControl`) to a supervisor. Groups split into "SMALL" (≤750 head, bundled by gathering point) and "SOLO" (one farmer with >750 head).
+3. **Supervisor audits.** Sign in as the assigned investigator (for example `289050133211`). You'll land on `/supervisor` and see the assigned groups; click one to open `/supervisor/[id]`. Upload `public/sample-chip-readings.txt` as the chip file, pick a violation status, save. The server parses the chip file (`src/lib/chips.ts`), keeps only readings inside the start/end window, flags rule violations, and persists via `submitAudit`.
 4. **Print.** From the audit page, click the print link → `/supervisor/[id]/print` is a server-rendered, print-stylesheet-friendly view that the browser turns into a PDF.
 
 ---
@@ -136,12 +185,12 @@ src/
     page.tsx                        Landing page with three portal cards
     layout.tsx                      Root layout: RTL <html>, header, footer
     farmer/
-      page.tsx                      Civil-ID gate + load existing declaration
+      page.tsx                      The signed-in farmer's form, prefilled
       DeclarationForm.tsx           "use client" — multi-group/multi-location form
       actions.ts                    submitDeclaration server action
       success/[id]/page.tsx         Post-submit confirmation
     supervisor/
-      page.tsx                      Supervisor login + assigned groups
+      page.tsx                      The signed-in investigator's assigned groups
       ScheduleRow.tsx               Client-side clickable <tr>
       MapLink.tsx                   Lat/lng → Google Maps deep link
       [id]/

@@ -1,14 +1,15 @@
-// Supervisor portal: Civil-ID login, then shows the visit schedule of farmer groups assigned to that supervisor.
+// Supervisor portal: shows the visit schedule of farmer groups assigned to the signed-in supervisor.
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { ANIMAL_TYPES, gatheringPointLabel } from "@/lib/constants";
+import { ANIMAL_TYPES, HEAD_THRESHOLD, gatheringPointLabel } from "@/lib/constants";
 import type { AnimalType, GatheringPoint } from "@/generated/prisma/enums";
 import ScheduleRow from "./ScheduleRow";
 import MapLink from "./MapLink";
 
 export const dynamic = "force-dynamic";
 
-const HEAD_THRESHOLD = 750;
 
 type FarmerRow = {
   declarationId: number;
@@ -91,68 +92,14 @@ function FarmerTable({
   );
 }
 
-// Supervisor portal: Civil-ID login form, then the list of groups assigned to that supervisor with their visit dates.
+// Supervisor portal: the groups assigned to the signed-in investigator, with their visit dates.
 export default async function SupervisorPage(props: {
-  searchParams: Promise<{ civilId?: string; type?: string }>;
+  searchParams: Promise<{ type?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  const civilId = (searchParams.civilId ?? "").trim();
-
-  if (!civilId) {
-    return (
-      <div className="space-y-5">
-        <div className="card">
-          <h1 className="text-xl font-bold text-gov-dark">بوابة المفتشين الميدانيين</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            يرجى إدخال رقمك المدني للوصول إلى جدول الزيارات المسنَد إليك.
-          </p>
-        </div>
-        <div className="card max-w-sm">
-          <form method="GET" className="space-y-4">
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-gray-700">الرقم المدني</label>
-              <input
-                name="civilId"
-                type="text"
-                inputMode="numeric"
-                maxLength={12}
-                placeholder="XXXXXXXXXXXX"
-                required
-                autoFocus
-                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-gov focus:outline-hidden"
-              />
-            </div>
-            <button type="submit" className="btn-primary w-full">
-              دخول
-            </button>
-          </form>
-        </div>
-        <Link href="/" className="text-sm font-semibold text-gov">
-          ← العودة للرئيسية
-        </Link>
-      </div>
-    );
-  }
-
-  const supervisor = await prisma.supervisor.findUnique({ where: { civilId } });
-
-  if (!supervisor) {
-    return (
-      <div className="space-y-5">
-        <div className="card">
-          <h1 className="text-xl font-bold text-gov-dark">بوابة المفتشين الميدانيين</h1>
-        </div>
-        <div className="card">
-          <p className="text-sm text-red-600">
-            الرقم المدني غير مسجّل. يرجى التواصل مع رئيس المفتشين.
-          </p>
-        </div>
-        <Link href="/supervisor" className="text-sm font-semibold text-gov">
-          ← المحاولة مجدداً
-        </Link>
-      </div>
-    );
-  }
+  const session = await requireRole("SUPERVISOR");
+  const supervisor = await prisma.supervisor.findUnique({ where: { civilId: session.civilId } });
+  if (!supervisor) redirect("/?reason=denied");
 
   const allAssignments = await prisma.assignment.findMany({
     where: { supervisorId: supervisor.id },
@@ -314,7 +261,7 @@ export default async function SupervisorPage(props: {
           ).map((at) => (
             <Link
               key={at.value}
-              href={`/supervisor?civilId=${encodeURIComponent(civilId)}&type=${at.value}`}
+              href={`/supervisor?type=${at.value}`}
               className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
                 at.value === selectedType
                   ? "border-gov bg-gov text-white"

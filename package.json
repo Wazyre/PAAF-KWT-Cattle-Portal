@@ -14,6 +14,7 @@
     "db:reset": "prisma migrate reset --force",
     "access": "tsx scripts/access.ts",
     "import:farmers": "tsx scripts/import-farmers.ts",
+    "import:staff": "tsx scripts/import-staff.ts",
     "export": "tsx scripts/export.ts",
     "db:backfill-flags": "tsx scripts/backfill-flags.ts"
   },

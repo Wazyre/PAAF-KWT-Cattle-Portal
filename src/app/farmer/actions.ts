@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { GatheringPoint, AnimalType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import { resolveIdentity } from "@/lib/identity";
+import { requireRole } from "@/lib/session";
 import {
   isFeatureAllowed,
   REGISTRATION_CLOSED_ERROR,
@@ -33,7 +34,8 @@ export async function submitDeclaration(
   _prev: DeclarationState,
   formData: FormData
 ): Promise<DeclarationState> {
-  const civilId = String(formData.get("civilId") ?? "").trim();
+  // Never trust a civil ID sent by the browser: the declaration belongs to whoever is signed in.
+  const { civilId } = await requireRole("FARMER");
   const mobile = String(formData.get("mobile") ?? "").trim();
   const mobile2Raw = String(formData.get("mobile2") ?? "").trim();
   const mobile2 = mobile2Raw || null;

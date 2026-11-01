@@ -8,7 +8,8 @@ const citizens = [
   { civilId: "275112207654", name: "ناصر خالد سعد" },
   { civilId: "281030411223", name: "يوسف فالح خالد" },
   { civilId: "293070855667", name: "مبارك دخيل عبيد" },
-  { civilId: "278092133445", name: "سعد عبيد ناصر" }
+  { civilId: "278092133445", name: "سعد عبيد ناصر" },
+  { civilId: "299012600563", name: "عبدالعزيز العبدالجليل" },
 ];
 
 // Test supervisors.
@@ -18,6 +19,9 @@ const supervisors = [
   { civilId: "284090355432", name: "خالد عبدالله سعد" },
   { civilId: "291060466789", name: "عبدالرحمن سعد محمد" }
 ];
+
+// Test head investigator.
+const headSupervisors = [{ civilId: "280020577001", name: "سليمان ناصر العتيبي" }];
 
 async function main() {
   for (const c of citizens) {
@@ -37,6 +41,15 @@ async function main() {
     });
   }
   console.log(`Seeded ${supervisors.length} supervisors.`);
+
+  for (const h of headSupervisors) {
+    await prisma.headSupervisor.upsert({
+      where: { civilId: h.civilId },
+      update: { name: h.name },
+      create: h
+    });
+  }
+  console.log(`Seeded ${headSupervisors.length} head supervisors.`);
 }
 
 main()

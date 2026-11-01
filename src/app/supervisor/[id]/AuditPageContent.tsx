@@ -1,6 +1,8 @@
 // Shared audit page body for both /supervisor and /head-supervisor: loads the declaration, runs alerts (proximity, male ratio), renders saved readings, and mounts AuditForm.
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/session";
+import { mayAudit } from "@/lib/assignments";
 import { findProximityHits } from "@/lib/proximity";
 import DeclarationView from "@/components/DeclarationView";
 import { IconCheckCircle, IconAlertTriangle } from "@/components/icons";
@@ -64,6 +66,10 @@ export default async function AuditPageContent({
   const searchParams = await props.searchParams;
   const id = Number(params.id);
   if (!Number.isInteger(id)) return <NotFoundCard backHref={backHref} />;
+
+  // Investigators only see declarations in their assigned groups (shown as "not found", same as a missing one).
+  const session = await requireRole("SUPERVISOR", "HEAD");
+  if (!(await mayAudit(session, id))) return <NotFoundCard backHref={backHref} />;
 
   const decl = await prisma.declaration.findUnique({
     where: { id },

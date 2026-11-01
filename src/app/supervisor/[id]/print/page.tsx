@@ -1,5 +1,7 @@
 // Print-friendly audit report: declaration, proximity alerts, audit results, and signature lines.
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/session";
+import { mayAudit } from "@/lib/assignments";
 import { findProximityHits } from "@/lib/proximity";
 import DeclarationView from "@/components/DeclarationView";
 import PrintButton from "@/components/PrintButton";
@@ -25,6 +27,10 @@ export default async function PrintPage(props: {
   const id = Number(params.id);
   if (!Number.isInteger(id)) {
     return <div className="danger-box">معاملة غير صالحة.</div>;
+  }
+  const session = await requireRole("SUPERVISOR", "HEAD");
+  if (!(await mayAudit(session, id))) {
+    return <div className="danger-box">المعاملة غير موجودة.</div>;
   }
   const decl = await prisma.declaration.findUnique({
     where: { id },

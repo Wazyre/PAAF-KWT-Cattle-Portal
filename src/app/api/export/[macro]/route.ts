@@ -1,6 +1,7 @@
 // GET /api/export/<macro>: downloads one of the CSV exports defined in src/lib/exports.ts.
 import { NextResponse } from "next/server";
 import { buildCsv, exportFilename, findMacro } from "@/lib/exports";
+import { authorize } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ macro: string }> }
 ) {
+  const session = await authorize("HEAD");
+  if (!session) return NextResponse.json({ error: "not authorised" }, { status: 401 });
   const { macro: macroName } = await params;
   const macro = findMacro(macroName);
   if (!macro) {

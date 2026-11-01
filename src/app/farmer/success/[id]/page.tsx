@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/session";
 import { IconCheckCircle } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,9 @@ export default async function SuccessPage(props: {
   const searchParams = await props.searchParams;
   const id = Number(params.id);
   if (!Number.isInteger(id)) notFound();
+  const session = await requireRole("FARMER");
   const decl = await prisma.declaration.findUnique({ where: { id } });
-  if (!decl) notFound();
+  if (!decl || decl.civilId !== session.civilId) notFound();
 
   const isUpdated = !!searchParams.updated;
 
@@ -43,7 +45,7 @@ export default async function SuccessPage(props: {
 
       <div className="flex flex-wrap gap-3">
         <Link href="/farmer" className="btn-secondary">
-          إقرار مربّي آخر
+          مراجعة الإقرار
         </Link>
         <Link href="/" className="btn-secondary">
           الرئيسية

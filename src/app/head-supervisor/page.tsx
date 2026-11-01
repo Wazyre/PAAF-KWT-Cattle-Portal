@@ -1,7 +1,7 @@
 // Head supervisor dashboard: lists farmers by gathering point split into small-group/solo, and lets the head assign each group to a supervisor + visit date.
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ANIMAL_TYPES, GATHERING_POINTS, gatheringPointLabel } from "@/lib/constants";
+import { ANIMAL_TYPES, GATHERING_POINTS, HEAD_THRESHOLD, gatheringPointLabel } from "@/lib/constants";
 import type { AnimalType } from "@/generated/prisma/enums";
 import ScheduleRow from "@/app/supervisor/ScheduleRow";
 import MapLink from "@/app/supervisor/MapLink";
@@ -13,7 +13,6 @@ export const dynamic = "force-dynamic";
 
 const VALID_TYPES = new Set<string>(ANIMAL_TYPES.map((a) => a.value));
 const GP_ORDER = GATHERING_POINTS.map((g) => g.value);
-const HEAD_THRESHOLD = 750;
 
 type FarmerRow = {
   declarationId: number;

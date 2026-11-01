@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
+import { getSession } from "@/lib/session";
+import { logout } from "./auth-actions";
 import "./globals.css";
 
 const AUTHORITY_NAME = "الهيئة العامة لشئون الزراعة والثروة السمكية";
@@ -25,11 +27,12 @@ export const viewport: Viewport = {
 };
 
 // Root HTML shell rendered around every page in the app.
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getSession();
   return (
     <html lang="ar" dir="rtl" className={cairo.variable}>
       <body className="min-h-screen font-sans antialiased">
@@ -44,6 +47,14 @@ export default function RootLayout({
                 <div className="text-xs text-white/80">{AUTHORITY_NAME}</div>
               </div>
             </Link>
+            {session && (
+              <form action={logout} className="ms-auto flex shrink-0 items-center gap-3 text-xs">
+                <span className="hidden sm:inline">{session.name}</span>
+                <button type="submit" className="rounded-sm border border-white/60 px-3 py-1 font-semibold hover:bg-white/10">
+                  تسجيل الخروج
+                </button>
+              </form>
+            )}
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
