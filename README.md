@@ -82,6 +82,8 @@ powershell -File scriptsackup.ps1 -Mode local # backup now (-Mode docker if you
 
 To update: `git pull`, then stop and start the task as above (it rebuilds when the code changed). In Docker mode run `docker compose up -d --build` instead. To remove the service, run **`Uninstall Sheep Portal Service.bat`**; the data and backups stay.
 
+**`npm run db:generate` fails with "EPERM" / "rmdir operation not permitted".** Windows will not delete `src\generated\prisma` while a running portal has it open, or when the service (which runs as SYSTEM) created it and your account may not delete it. The service already runs `generate` and `db push` on every start, so you rarely need them by hand: stop and start the task (above). If you do need to run it, stop the task first (`schtasks /End /TN "Sheep Portal"`, then check no `node.exe` for this folder remains) and use an administrator PowerShell. Adding farmers never needs `db:generate`: use `npm run import:farmers -- file.csv`.
+
 Restore a backup (local mode): `pg_restore --clean --if-exists -h 127.0.0.1 -U sheep -d sheep_portal backups\<file>.dump`. Copy `backups\` to another machine regularly: a backup on the same disk does not survive losing the disk.
 
 ### Security: read before exposing it

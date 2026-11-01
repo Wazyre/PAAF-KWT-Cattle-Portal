@@ -70,6 +70,14 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
     console.error(`PACI Auth answered ${res.status} without a request id: ${body.slice(0, 200)}`);
     return { ok: false, kind: "unavailable" };
   }
+  // Shows the shape of PACI's reply (field names only, plus the start of the id) so it can be compared with what the callback later reports.
+  let shape = "non-JSON reply";
+  try {
+    shape = `fields: ${Object.keys(JSON.parse(body)).join(", ")}`;
+  } catch {
+    // keep the default
+  }
+  console.log(`PACI Auth accepted (HTTP ${res.status}, ${shape}); request id ${requestId.slice(0, 8)}…. Now waiting for PACI's callback.`);
   return { ok: true, requestId: requestId.toLowerCase() };
 }
 
