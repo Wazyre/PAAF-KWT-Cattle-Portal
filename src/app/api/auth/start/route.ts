@@ -11,7 +11,8 @@ const STATUS: Record<string, number> = {
   rate_limited: 429,
   too_soon: 429,
   paci_unavailable: 503,
-  paci_rejected: 502
+  paci_rejected: 502,
+  paci_no_identity: 422
 };
 
 export async function POST(req: Request) {

@@ -6,7 +6,7 @@ import { mockOutcome, paciMode, paciTimeoutSeconds, requestPaciAuth } from "./pa
 
 export type StartResult =
   | { ok: true; attempt: string; expiresIn: number }
-  | { ok: false; code: "invalid" | "not_registered" | "rate_limited" | "too_soon" | "paci_unavailable" | "paci_rejected" };
+  | { ok: false; code: "invalid" | "not_registered" | "rate_limited" | "too_soon" | "paci_unavailable" | "paci_rejected" | "paci_no_identity" };
 
 // A phone gets one push at a time: asking again within this window is refused (stops anyone from spamming a citizen's phone).
 const COOLDOWN_SECONDS = 30;
@@ -46,7 +46,7 @@ export async function startLogin(rawCivilId: string, ip: string): Promise<StartR
   const paci = await requestPaciAuth(civilId);
   if (!paci.ok) {
     await prisma.loginAttempt.update({ where: { id: attempt }, data: { status: "FAILED", detail: paci.kind } });
-    return { ok: false, code: paci.kind === "rejected" ? "paci_rejected" : "paci_unavailable" };
+    return { ok: false, code: paci.kind === "rejected" ? "paci_rejected" : paci.kind === "no_identity" ? "paci_no_identity" : "paci_unavailable" };
   }
   await prisma.loginAttempt.update({ where: { id: attempt }, data: { paciRequestId: paci.requestId } });
   return { ok: true, attempt, expiresIn };

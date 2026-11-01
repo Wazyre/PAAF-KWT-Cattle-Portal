@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 
 export type PaciStart =
   | { ok: true; requestId: string }
-  | { ok: false; kind: "unavailable" | "rejected" };
+  | { ok: false; kind: "unavailable" | "rejected" | "no_identity" };
 
 const DEFAULT_AUTH_URL = "https://kmidinteg.paaf.gov.kw/api/PACI/Auth";
 const GUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -64,20 +64,36 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
     console.error(`PACI Auth refused the request (${res.status}): ${body.slice(0, 200)}`);
     return { ok: false, kind: "rejected" };
   }
-  const requestId = body.match(GUID)?.[0];
+
+  // PACI's reply: { SubmitResult, HasIdentity, Erorr, CivilID } ("Erorr" is PACI's spelling). Here CivilID holds the request id, the same value the callback later echoes in its own CivilID field.
+  let reply: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed && typeof parsed === "object") reply = parsed as Record<string, unknown>;
+  } catch {
+    // not JSON: fall back to looking for an id anywhere in the text
+  }
+  const isFalse = (v: unknown) => v === false || (typeof v === "string" && v.trim().toLowerCase() === "false");
+  const problem = reply.Erorr ?? reply.Error ?? reply.error;
+  const summary = `SubmitResult=${String(reply.SubmitResult)}, HasIdentity=${String(reply.HasIdentity)}${problem ? `, Erorr="${String(problem).slice(0, 120)}"` : ""}`;
+
+  if (isFalse(reply.HasIdentity)) {
+    console.error(`PACI Auth: this civil ID has no digital identity (${summary}).`);
+    return { ok: false, kind: "no_identity" };
+  }
+  if (isFalse(reply.SubmitResult)) {
+    console.error(`PACI Auth did not submit the request (${summary}).`);
+    return { ok: false, kind: "rejected" };
+  }
+
+  const named = [reply.CivilID, reply.CiviID, reply.RequestID, reply.requestId].find((v) => typeof v === "string" && GUID.test(v)) as string | undefined;
+  const requestId = named ?? body.match(GUID)?.[0];
   if (!requestId) {
     // Without the id PACI will use in its callback we could never match the answer to this sign-in.
-    console.error(`PACI Auth answered ${res.status} without a request id: ${body.slice(0, 200)}`);
+    console.error(`PACI Auth answered ${res.status} without a request id (${summary}).`);
     return { ok: false, kind: "unavailable" };
   }
-  // Shows the shape of PACI's reply (field names only, plus the start of the id) so it can be compared with what the callback later reports.
-  let shape = "non-JSON reply";
-  try {
-    shape = `fields: ${Object.keys(JSON.parse(body)).join(", ")}`;
-  } catch {
-    // keep the default
-  }
-  console.log(`PACI Auth accepted (HTTP ${res.status}, ${shape}); request id ${requestId.slice(0, 8)}…. Now waiting for PACI's callback.`);
+  console.log(`PACI Auth accepted (HTTP ${res.status}; ${summary}); request id ${requestId.slice(0, 8)}… taken from ${named ? "the CivilID field" : "the reply text"}. Now waiting for PACI's callback.`);
   return { ok: true, requestId: requestId.toLowerCase() };
 }
 

@@ -125,7 +125,7 @@ Both accept `--dry-run`. The head investigator can also add or remove investigat
 Two things must be arranged with PACI/PAAF, because they cannot be tested without them:
 
 - **Register the callback URL**: `https://<your-subdomain>/api/paci/callback` must be reachable from PACI's network (the forwarding server must pass this path through). If you set `PACI_CALLBACK_SECRET`, register the URL as `.../api/paci/callback?key=<secret>`.
-- **Confirm the Auth response.** The portal assumes the Auth response contains the request id (a GUID) that PACI later sends back in the callback, and takes the first GUID it finds in the response body. If PACI answers differently, sign-in shows "PACI unavailable" and the server log prints what PACI returned.
+- **The Auth reply.** PACI answers `{SubmitResult, HasIdentity, Erorr, CivilID}` ("Erorr" is their spelling). The portal uses `CivilID`, which holds the request id, to match the callback with, shows "no digital identity" when `HasIdentity` is false and "could not send" when `SubmitResult` is false. The server log records these values and the first 8 characters of the id, which must equal the id in the later `PACI callback` log line; if they differ, the id is carried in another field.
 
 Settings in `.env` (all optional):
 
