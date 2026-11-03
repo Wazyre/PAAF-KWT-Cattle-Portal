@@ -120,12 +120,10 @@ Both accept `--dry-run`. The head investigator can also add or remove investigat
 **The PACI exchange** (`src/lib/paci.ts`, `src/app/api/paci/callback/route.ts`):
 
 1. The portal POSTs `{CivilID, ServiceDescAr, ServiceDescEn, AuthReassonAR, AuthReassonEn}` to `https://kmidinteg.paaf.gov.kw/api/PACI/Auth`. PACI pushes a request to the phone.
-2. PACI POSTs the person's answer to **our callback**: `{"CivilID": "<request id>", "flag": "True" | "False"}`. The portal matches the request id to the waiting sign-in; the browser polls and is signed in the moment it is approved.
+2. **The answer.** PACI posts the person's result to the PAAF e-services portal (`paciCall`). While a sign-in is waiting, the portal asks that same address every 4 seconds: `POST {"CivilID": "<request id>", "flag": "True"}`. It replies `CallBackResSuccessFlag: "True"` only once PACI reported an approval (and `"False"` for a pending or unknown request), and only then is the person signed in. A request nobody approves ends as "no answer in time" after `PACI_TIMEOUT_SECONDS`. PAAF restricts which servers may call `paciCall`: if the log says `FORBIDDEN_SOURCE`, ask PAAF to allow this server's public address. Their certificate lacks the Sectigo intermediate, so the repo ships `certs/sectigo-dv-r36.pem` (public) and the portal trusts it in addition to the normal list; certificate checking stays on.
+3. **Optional callback.** The portal also accepts PACI's result at `/api/paci/callback` (and `/paafPortal/resourc/paciCall`) as `{"CivilID": "<request id>", "flag": "True" | "False"}`. This only matters if PAAF forwards results here; it is the only way to learn quickly that someone *declined*, since the e-services check answers `False` for both pending and declined. Set `PACI_RESULT_POLL=off` to use the callback alone.
 
-Two things must be arranged with PACI/PAAF, because they cannot be tested without them:
-
-- **Where PACI sends the answer.** For the integration credentials used so far, PACI posts the result to the PAAF e-services portal (`https://eservices.paaf.gov.kw/paafPortal/resourc/paciCall`), not to this portal, so a sign-in stays "waiting" until the answer reaches `/api/paci/callback`. Ask PAAF for one of: (a) a callback address registered for this portal's own credentials, (b) the e-services portal forwarding each result (`{CivilID, flag}`) to `https://<your-subdomain>/api/paci/callback`, or (c) a lookup endpoint for the result by request id. The portal also answers on `/paafPortal/resourc/paciCall`, for the case where PAAF routes that path here. If you set `PACI_CALLBACK_SECRET`, whoever calls must append `?key=<secret>`; without it, the unguessable request id is the only protection, and the log shows only its first 8 characters.
-- **The Auth reply.** PACI answers `{SubmitResult, HasIdentity, Erorr, CivilID}` ("Erorr" is their spelling). When the request is submitted, `SubmitResult` holds the request id (a GUID); the portal matches the callback's `CivilID` against it. `HasIdentity` false shows "no digital identity", and `SubmitResult` false shows "could not send". The server log records these values and only the first 8 characters of the id, which must equal the id in the later `PACI callback` log line; if they differ, the id is carried in another field.
+- **The Auth reply.** PACI answers `{SubmitResult, HasIdentity, Erorr, CivilID}` ("Erorr" is their spelling). When the request is submitted, `SubmitResult` holds the request id (a GUID) and `CivilID` is the civil number. `HasIdentity` false shows "no digital identity", and `SubmitResult` false shows "could not send". The server log records these values and only the first 8 characters of the id.
 
 Settings in `.env` (all optional):
 
@@ -134,6 +132,8 @@ Settings in `.env` (all optional):
 | `PACI_MODE`            | `live` (default) or `mock`. **`mock` approves automatically: testing only, never on a real server.** In mock mode an ID ending in 9 is refused and one ending in 8 never answers. |
 | `PACI_AUTH_URL`        | Auth endpoint (default: the `kmidinteg` address above).                                              |
 | `PACI_AUTH_HEADER`     | A credential header if PACI requires one, as `Name: value`.                                          |
+| `PACI_RESULT_URL`      | The e-services `paciCall` address (default: PAAF's).                                                 |
+| `PACI_RESULT_POLL`     | `off` to stop asking e-services and rely on the callback only.                                       |
 | `PACI_TIMEOUT_SECONDS` | How long a person has to approve (default 120).                                                      |
 | `PACI_CALLBACK_SECRET` | If set, callbacks without `?key=<secret>` are rejected.                                              |
 | `SESSION_SECRET`       | Signs the session cookie. Optional: a random key is generated and kept in the database.             |

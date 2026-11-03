@@ -1,9 +1,13 @@
 // Client for PACI (Kuwait Mobile ID) push authentication.
 //
 // Flow: we POST the civil ID to PACI's Auth endpoint, which sends a confirmation request to the person's phone.
-// PACI later POSTs the result to our callback (/api/paci/callback) as { CivilID: "<request id>", flag: "True" | "False" }.
-// The "CivilID" in that callback is the request identifier PACI gave us in the Auth response, not a civil number.
+// The answer reaches us in one of two ways, both of which settle the same waiting sign-in:
+//  - PACI's result is posted to our callback (/api/paci/callback) as { CivilID: "<request id>", flag: "True" | "False" }
+//    (only if PAAF registers that address; the e-services portal is where PACI posts today), or
+//  - we ask PAAF's e-services check (paciCall) about the request id every few seconds (checkPaciResult below).
+// The "CivilID" in the callback and in the check is the request id PACI returned as SubmitResult, not a civil number.
 import { randomUUID } from "node:crypto";
+import { postJson } from "./http";
 
 export type PaciStart =
   | { ok: true; requestId: string }
@@ -21,6 +25,48 @@ export function paciMode(): "live" | "mock" {
 export function paciTimeoutSeconds(): number {
   const n = Number(process.env.PACI_TIMEOUT_SECONDS);
   return Number.isFinite(n) && n >= 15 ? n : 120;
+}
+
+const DEFAULT_RESULT_URL = "https://eservices.paaf.gov.kw/paafPortal/resourc/paciCall";
+
+/** Whether to ask e-services for the result while a sign-in waits. Set PACI_RESULT_POLL=off to rely on the callback only. */
+export function resultPollingEnabled(): boolean {
+  return paciMode() === "live" && (process.env.PACI_RESULT_POLL ?? "").toLowerCase() !== "off";
+}
+
+export type PaciResult =
+  | { state: "approved" }
+  | { state: "pending" }
+  | { state: "error"; detail: string };
+
+/**
+ * Asks e-services whether the person approved the request: POST { CivilID: <request id>, flag: "True" } answers
+ * CallBackResSuccessFlag "True" only after PACI reported an approval; for pending or unknown ids it answers "False".
+ * (Verified with a probe: a random id gets "False", a real request flips to "True" when approved.)
+ */
+export async function checkPaciResult(requestId: string): Promise<PaciResult> {
+  let reply;
+  try {
+    reply = await postJson(process.env.PACI_RESULT_URL || DEFAULT_RESULT_URL, { CivilID: requestId, flag: "True" });
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    return { state: "error", detail: `${(e as Error).message}${code ? ` (${code})` : ""}` };
+  }
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(reply.text);
+    if (parsed && typeof parsed === "object") body = parsed as Record<string, unknown>;
+  } catch {
+    // handled below
+  }
+  const flag = String(body.CallBackResSuccessFlag ?? "").trim().toLowerCase();
+  const error = String(body.CallBackResSuccessError ?? "").trim();
+  if (reply.status === 200 && flag === "true") return { state: "approved" };
+  if (reply.status === 200 && flag === "false" && (error === "" || error.toLowerCase() === "null")) return { state: "pending" };
+  if (error === "FORBIDDEN_SOURCE" || reply.status === 403) {
+    return { state: "error", detail: "e-services refused this server's address (FORBIDDEN_SOURCE): ask PAAF to allow it" };
+  }
+  return { state: "error", detail: `unexpected reply HTTP ${reply.status}: ${reply.text.replace(/\s+/g, " ").slice(0, 120)}` };
 }
 
 // Text shown to the person inside the PACI app. (PACI spells the field "AuthReasson".)
@@ -97,7 +143,7 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
     console.error(`PACI Auth answered ${res.status} without a request id (${summary}).`);
     return { ok: false, kind: "unavailable" };
   }
-  console.log(`PACI Auth accepted (HTTP ${res.status}; ${summary}); request id ${requestId.slice(0, 8)}… taken from ${source ? `the ${source} field` : "the reply text"}. Now waiting for PACI's callback.`);
+  console.log(`PACI Auth accepted (HTTP ${res.status}; ${summary}); request id ${requestId.slice(0, 8)}… taken from ${source ? `the ${source} field` : "the reply text"}. Now waiting for the result (callback, or the e-services check).`);
   return { ok: true, requestId: requestId.toLowerCase() };
 }
 

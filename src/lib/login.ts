@@ -2,7 +2,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "./prisma";
 import { CIVIL_ID_PATTERN, rolesFor, type Role } from "./roles";
-import { mockOutcome, paciMode, paciTimeoutSeconds, requestPaciAuth } from "./paci";
+import { checkPaciResult, mockOutcome, paciMode, paciTimeoutSeconds, requestPaciAuth, resultPollingEnabled } from "./paci";
 
 export type StartResult =
   | { ok: true; attempt: string; expiresIn: number }
@@ -61,6 +61,30 @@ export async function applyPaciResult(requestId: string, approved: boolean): Pro
   return done.count === 1;
 }
 
+// Asking e-services about a request at most this often, however quickly the browser polls us.
+const RESULT_CHECK_INTERVAL_MS = 4000;
+const lastCheck = new Map<string, number>();
+const lastProblemLog = new Map<string, number>();
+
+// Asks e-services whether the person approved; true only on an explicit "approved". Problems are logged, at most once a minute per attempt.
+async function approvedAccordingToEservices(token: string, requestId: string): Promise<boolean> {
+  const now = Date.now();
+  if (now - (lastCheck.get(token) ?? 0) < RESULT_CHECK_INTERVAL_MS) return false;
+  lastCheck.set(token, now); // set before the call so concurrent polls do not all ask
+  if (lastCheck.size > 2000) for (const [key, at] of lastCheck) if (now - at > 10 * 60 * 1000) (lastCheck.delete(key), lastProblemLog.delete(key));
+
+  const result = await checkPaciResult(requestId);
+  if (result.state === "approved") {
+    console.log(`E-services reports request ${requestId.slice(0, 8)}… approved.`);
+    return true;
+  }
+  if (result.state === "error" && now - (lastProblemLog.get(token) ?? 0) > 60000) {
+    lastProblemLog.set(token, now);
+    console.error(`Checking e-services for request ${requestId.slice(0, 8)}… failed: ${result.detail}`);
+  }
+  return false;
+}
+
 export type AttemptStatus = "PENDING" | "APPROVED" | "REFUSED" | "EXPIRED" | "FAILED" | "UNKNOWN";
 
 /** What the browser's polling sees. In mock mode this is also where the pretend PACI answer arrives. */
@@ -74,6 +98,13 @@ export async function attemptStatus(token: string): Promise<AttemptStatus> {
     if (outcome) {
       await applyPaciResult(attempt.paciRequestId, outcome === "approved");
       return outcome === "approved" ? "APPROVED" : "REFUSED";
+    }
+  }
+  if (attempt.expiresAt.getTime() > Date.now() && attempt.paciRequestId && resultPollingEnabled()) {
+    if (await approvedAccordingToEservices(token, attempt.paciRequestId)) {
+      await applyPaciResult(attempt.paciRequestId, true);
+      lastCheck.delete(token);
+      return (await prisma.loginAttempt.findUnique({ where: { id: token } }))?.status ?? "UNKNOWN";
     }
   }
   if (attempt.expiresAt.getTime() <= Date.now()) {
