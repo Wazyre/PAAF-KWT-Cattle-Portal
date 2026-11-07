@@ -23,5 +23,6 @@ export const OUTCOME_ERRORS: Record<string, string> = {
 
 export const ENTRY_NOTICES: Record<string, string> = {
   signin: "يرجى تسجيل الدخول بالهوية الرقمية للوصول إلى هذه الصفحة.",
-  denied: "حسابك لا يملك صلاحية الوصول إلى تلك الصفحة."
+  denied: "حسابك لا يملك صلاحية الوصول إلى تلك الصفحة.",
+  bad_link: "رابط الدخول غير صالح. يمكنك إدخال رقمك المدني أدناه لتسجيل الدخول."
 };

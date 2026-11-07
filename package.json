@@ -15,6 +15,7 @@
     "access": "tsx scripts/access.ts",
     "import:farmers": "tsx scripts/import-farmers.ts",
     "import:staff": "tsx scripts/import-staff.ts",
+    "make:links": "tsx scripts/make-links.ts",
     "export": "tsx scripts/export.ts",
     "db:backfill-flags": "tsx scripts/backfill-flags.ts"
   },

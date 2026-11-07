@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { IconClipboardEdit, IconClipboardCheck, IconAlertTriangle } from "@/components/icons";
 import { ENTRY_NOTICES } from "@/lib/login-messages";
+import { verifyEntryLink } from "@/lib/entry-link";
 import { paciMode } from "@/lib/paci";
 import { ROLE_HOME, ROLE_LABEL, rolesFor, type Role } from "@/lib/roles";
 import { getSession } from "@/lib/session";
@@ -17,13 +18,18 @@ const ROLE_ICON = {
 } as const;
 
 export default async function HomePage(props: {
-  searchParams: Promise<{ reason?: string }>;
+  searchParams: Promise<{ reason?: string; c?: string; k?: string }>;
 }) {
-  const { reason } = await props.searchParams;
+  const { reason: askedReason, c, k } = await props.searchParams;
   const session = await getSession();
   // Roles come from the database, not the cookie, so a person removed from a table sees no portal here.
   const current = session ? await rolesFor(session.civilId) : null;
   const roles: Role[] = current ? current.roles.filter((r) => session!.roles.includes(r)) : [];
+
+  // A link from a Sahel notification (?c=<civil id>&k=<signature>) starts the PACI request without typing the civil ID.
+  const linked = c !== undefined || k !== undefined;
+  const linkedCivilId = c && k && verifyEntryLink(c, k) ? c : undefined;
+  const reason = linked && !linkedCivilId ? "bad_link" : askedReason;
 
   if (session && roles.length > 0) {
     return (
@@ -63,7 +69,7 @@ export default async function HomePage(props: {
         </p>
       </div>
       {reason && ENTRY_NOTICES[reason] && <div className="danger-box">{ENTRY_NOTICES[reason]}</div>}
-      <LoginForm mock={paciMode() === "mock"} />
+      <LoginForm mock={paciMode() === "mock"} linkedCivilId={linkedCivilId} />
     </div>
   );
 }

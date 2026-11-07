@@ -16,7 +16,7 @@ function normalizeDigits(v: string): string {
     .replace(/\s+/g, "");
 }
 
-export default function LoginForm({ mock }: { mock: boolean }) {
+export default function LoginForm({ mock, linkedCivilId }: { mock: boolean; linkedCivilId?: string }) {
   const router = useRouter();
   const [civilId, setCivilId] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -24,8 +24,22 @@ export default function LoginForm({ mock }: { mock: boolean }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [roles, setRoles] = useState<Role[]>([]);
   const cancelled = useRef(false);
+  const linkStarted = useRef(false);
 
-  useEffect(() => () => void (cancelled.current = true), []);
+  useEffect(() => {
+    cancelled.current = false;
+    return () => void (cancelled.current = true);
+  }, []);
+
+  // Opened from a Sahel notification: the link is signed, so ask PACI straight away (once) and drop the ID from the address bar.
+  useEffect(() => {
+    if (!linkedCivilId || linkStarted.current) return;
+    linkStarted.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    setCivilId(linkedCivilId);
+    void begin(linkedCivilId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedCivilId]);
 
   function fail(message: string) {
     setError(message);
@@ -62,12 +76,15 @@ export default function LoginForm({ mock }: { mock: boolean }) {
     }
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const id = normalizeDigits(civilId);
     if (!/^\d{12}$/.test(id)) return fail(START_ERRORS.invalid);
+    void begin(id);
+  }
 
+  async function begin(id: string) {
     cancelled.current = false;
     setPhase("sending");
     let res: Response;

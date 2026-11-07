@@ -71,6 +71,25 @@ Use this when the portal lives on a Windows PC or server and another server on t
 
 **The forwarding server** should send traffic to `http://<this-pc>:3000` and pass the original `Host` header (nginx: `proxy_set_header Host $host;`). If it cannot, the address you entered is saved as `ALLOWED_ORIGINS` in `.env`, which is what lets form submissions through.
 
+**HTTPS on the portal itself (no `:3000` in the address).** If the address points straight at this PC instead of at a forwarding server, the portal can serve HTTPS on port 443 by itself (and send port 80 to https). You need a certificate issued for the address (for example `selfdeclaration.paaf.gov.kw`) by PAAF IT or a certificate authority; the portal cannot make one. Put the files in a folder only administrators can read (for example `C:\certs\`) and add to `.env`:
+
+```
+TLS_CERT_FILE=C:\certs\selfdeclaration.pem   # the certificate followed by its intermediate certificates ("fullchain")
+TLS_KEY_FILE=C:\certs\selfdeclaration.key
+# or one Windows .pfx file instead of the two lines above:
+# TLS_PFX_FILE=C:\certs\selfdeclaration.pfx
+# TLS_PFX_PASSPHRASE=<its password>
+```
+
+Then open the ports and restart (PowerShell as administrator):
+
+```powershell
+New-NetFirewallRule -DisplayName "Sheep Portal HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443,80 -Action Allow
+schtasks /End /TN "Sheep Portal"; schtasks /Run /TN "Sheep Portal"
+```
+
+The watchdog starts the HTTPS listener (`scripts\https-proxy.mjs`) next to the portal and keeps it running; its messages are in `logs\https.log`. A renewed certificate is picked up within a minute of replacing the files, with no restart. Visitors can still reach `:3000` unless you remove that firewall rule (`Remove-NetFirewallRule -DisplayName "Sheep Portal"`), which you should do once nothing else needs it. Sign-in cookies are marked Secure automatically. A chain that lacks the intermediate shows as a warning in some browsers, so include it in the PEM file. This runs only in the Windows-service local mode; with Docker, terminate HTTPS on the forwarding server.
+
 Day to day (PowerShell as administrator, from the project folder):
 
 ```powershell
@@ -91,7 +110,7 @@ Restore a backup (local mode): `pg_restore --clean --if-exists -h 127.0.0.1 -U s
 - **Every portal requires sign-in through PACI** (see section 3c). The farmer portal, the investigator portal, the head-investigator portal and the CSV exports each check the signed-in role on the server, so a person can only open the portal their civil ID belongs to, and a farmer only ever sees their own declaration.
 - **Investigators see only their assigned groups.** An investigator can open, save an audit for, or print only the declarations in groups the head investigator assigned to them (the same farmers their schedule lists); anything else looks like a missing record. Head investigators can open everything. One deliberate exception: an audit page lists nearby farmers' names and civil IDs in its proximity alerts, because that is how suspicious locations are caught.
 - Sign-in attempts are limited (10 per address per 10 minutes, one PACI request per civil ID per 30 seconds), but add rate limiting on the forwarding server too.
-- The portal speaks plain HTTP. Terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above). Pass `X-Forwarded-Proto: https` so the session cookie is marked Secure (or set `COOKIE_SECURE=true`).
+- The portal itself speaks plain HTTP. Either turn on its HTTPS listener (above), or terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above). Pass `X-Forwarded-Proto: https` so the session cookie is marked Secure (or set `COOKIE_SECURE=true`).
 - Server-side fetching of Google Maps short links is restricted to Google's own hosts.
 
 ---
@@ -123,6 +142,14 @@ Both accept `--dry-run`. The head investigator can also add or remove investigat
 2. **The answer.** PACI posts the person's result to the PAAF e-services portal (`paciCall`). While a sign-in is waiting, the portal asks that same address every 4 seconds: `POST {"CivilID": "<request id>", "flag": "True"}`. It replies `CallBackResSuccessFlag: "True"` only once PACI reported an approval (and `"False"` for a pending or unknown request), and only then is the person signed in. A request nobody approves ends as "no answer in time" after `PACI_TIMEOUT_SECONDS`. PAAF restricts which servers may call `paciCall`: if the log says `FORBIDDEN_SOURCE`, ask PAAF to allow this server's public address. Their certificate lacks the Sectigo intermediate, so the repo ships `certs/sectigo-dv-r36.pem` (public) and the portal trusts it in addition to the normal list; certificate checking stays on.
 3. **Optional callback.** The portal also accepts PACI's result at `/api/paci/callback` (and `/paafPortal/resourc/paciCall`) as `{"CivilID": "<request id>", "flag": "True" | "False"}`. This only matters if PAAF forwards results here; it is the only way to learn quickly that someone *declined*, since the e-services check answers `False` for both pending and declined. Set `PACI_RESULT_POLL=off` to use the callback alone.
 
+- **Sign-in links in Sahel notifications.** The "Register Now" button of a notification can carry the person's civil ID so they never type it: `https://<portal>/?c=<civil id>&k=<signature>`. Opening it sends the PACI request immediately and removes the ID from the address bar; the person still has to approve on their phone. The signature (made with `ENTRY_LINK_SECRET` in `.env`: a long random text, keep it private) stops anyone from writing a link for another person's civil ID; a link with a wrong signature just shows the normal form. Make links on the server:
+
+  ```
+  npm run make:links -- --base https://selfdeclaration.paaf.gov.kw 287101505009
+  npm run make:links -- --base https://selfdeclaration.paaf.gov.kw --file ids.txt   # one civil ID per line
+  ```
+
+  Each line prints `civilId,link`; the link goes in `actionUrl` of the notification for that person. Links do not expire; changing `ENTRY_LINK_SECRET` cancels every link issued so far. Without `ENTRY_LINK_SECRET` links are not recognised and the form is shown.
 - **The Auth reply.** PACI answers `{SubmitResult, HasIdentity, Erorr, CivilID}` ("Erorr" is their spelling). When the request is submitted, `SubmitResult` holds the request id (a GUID) and `CivilID` is the civil number. `HasIdentity` false shows "no digital identity", and `SubmitResult` false shows "could not send". The server log records these values and only the first 8 characters of the id.
 
 Settings in `.env` (all optional):
@@ -132,6 +159,8 @@ Settings in `.env` (all optional):
 | `PACI_MODE`            | `live` (default) or `mock`. **`mock` approves automatically: testing only, never on a real server.** In mock mode an ID ending in 9 is refused and one ending in 8 never answers. |
 | `PACI_AUTH_URL`        | Auth endpoint (default: the `kmidinteg` address above).                                              |
 | `PACI_AUTH_HEADER`     | A credential header if PACI requires one, as `Name: value`.                                          |
+| `ENTRY_LINK_SECRET`    | Secret that signs the sign-in links for Sahel notifications (`npm run make:links`).                  |
+| `TLS_CERT_FILE`, `TLS_KEY_FILE` (or `TLS_PFX_FILE`, `TLS_PFX_PASSPHRASE`) | Certificate files; when set, the Windows service serves HTTPS on port 443 (`HTTPS_PORT`). |
 | `PACI_RESULT_URL`      | The e-services `paciCall` address (default: PAAF's).                                                 |
 | `PACI_RESULT_POLL`     | `off` to stop asking e-services and rely on the callback only.                                       |
 | `PACI_TIMEOUT_SECONDS` | How long a person has to approve (default 120).                                                      |

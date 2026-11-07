@@ -103,11 +103,25 @@ if ($NodePath) { $NodeExe = $NodePath } else { $NodeExe = (Get-Command node.exe 
 $env:Path = (Split-Path -Parent $NodeExe) + ';' + $env:Path   # run-local.mjs calls npm
 $NextBin = Join-Path $Root 'node_modules\next\dist\bin\next'
 
+$HttpsScript = Join-Path $Root 'scripts\https-proxy.mjs'
+
+# HTTPS on port 443 is served by a small proxy (scripts\https-proxy.mjs) when .env names a certificate.
+function Test-HttpsConfigured {
+  $envFile = Join-Path $Root '.env'
+  if (-not (Test-Path $envFile)) { return $false }
+  return [bool](Select-String -Path $envFile -Pattern '^\s*TLS_(CERT|PFX)_FILE\s*=\s*\S' -Quiet)
+}
+
+function Start-Https([string]$LogFile) {
+  return Start-Process -FilePath $NodeExe -ArgumentList @("`"$HttpsScript`"") -WorkingDirectory $Root `
+    -PassThru -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err"
+}
+
 # A previous watchdog that was killed can leave the web server behind; stop it so the port is free.
 # Only portal processes whose parent is gone are touched.
 function Remove-Orphans {
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object {
-    $_.CommandLine -and $_.CommandLine.Contains($NextBin) -and -not (Get-Process -Id $_.ParentProcessId -ErrorAction SilentlyContinue)
+    $_.CommandLine -and ($_.CommandLine.Contains($NextBin) -or $_.CommandLine.Contains($HttpsScript)) -and -not (Get-Process -Id $_.ParentProcessId -ErrorAction SilentlyContinue)
   } | ForEach-Object {
     Log "Stopping a leftover portal process (PID $($_.ProcessId))."
     Stop-Tree $_.ProcessId
@@ -137,12 +151,26 @@ while ($true) {
   Prune-Logs 'portal-*.log.err' 20
   Log "Portal started (PID $($proc.Id))."
 
+  $https = $null
+  $httpsLog = Join-Path $LogDir 'https.log'
+  if (Test-HttpsConfigured) {
+    $https = Start-Https $httpsLog
+    $httpsStarted = Get-Date
+    Log "HTTPS proxy started (PID $($https.Id)); see logs\https.log."
+  }
+
   $started = Get-Date
   $fails = 0
   $dbWarned = $false
   while ($true) {
     Start-Sleep -Seconds $IntervalSeconds
     if ($proc.HasExited) { Log "The portal process exited (code $($proc.ExitCode))."; break }
+    # A broken certificate must not keep restarting the portal itself: retry only the HTTPS proxy, at most once a minute.
+    if ($https -and $https.HasExited -and ((Get-Date) - $httpsStarted).TotalSeconds -gt 60) {
+      Log "The HTTPS proxy exited (code $($https.ExitCode)); see logs\https.log. Starting it again."
+      $https = Start-Https $httpsLog
+      $httpsStarted = Get-Date
+    }
     if (((Get-Date) - $started).TotalSeconds -lt $GraceSeconds) { continue }
 
     $code = Get-Health
@@ -156,6 +184,8 @@ while ($true) {
     Log "Health check failed ($fails of $FailuresBeforeRestart, status $code)."
     if ($fails -ge $FailuresBeforeRestart) { Log 'Restarting the portal.'; Stop-Tree $proc.Id; break }
   }
+
+  if ($https -and -not $https.HasExited) { Stop-Tree $https.Id }
 
   # Back off when it keeps failing right after starting; reset once it has run for a while.
   if (((Get-Date) - $started).TotalSeconds -gt 300) { $restartDelay = 5 } else { $restartDelay = [Math]::Min($restartDelay * 2, 120) }
