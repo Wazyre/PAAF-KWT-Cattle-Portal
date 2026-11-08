@@ -2,7 +2,7 @@
 // Run via `npm run make:links -- <civil id>... ` or `npm run make:links -- --file ids.txt`.
 import "dotenv/config";
 import { readFileSync } from "node:fs";
-import { entryLinkSecret, signEntryLink } from "../src/lib/entry-link";
+import { entryLinkSecret, entryLinkUrl } from "../src/lib/entry-link";
 
 const USAGE = `
 Usage: npm run make:links -- [--base https://selfdeclaration.paaf.gov.kw] <civil id>...
@@ -35,8 +35,6 @@ const secret = entryLinkSecret();
 if (!secret) fail("ENTRY_LINK_SECRET is not set in .env.");
 if (!base) base = (process.env.ALLOWED_ORIGINS ?? "").split(",")[0].trim();
 if (!base) fail("Pass --base https://<portal address> (or set ALLOWED_ORIGINS in .env).");
-if (!/^https?:\/\//.test(base)) base = `https://${base}`;
-base = base.replace(/\/+$/, "");
 
 let bad = 0;
 for (const id of ids.filter(Boolean)) {
@@ -47,7 +45,7 @@ for (const id of ids.filter(Boolean)) {
     }
     continue; // a header row
   }
-  console.log(`${id},${base}/?c=${id}&k=${signEntryLink(id, secret)}`);
+  console.log(`${id},${entryLinkUrl(base, id, secret)}`);
 }
 if (ids.length === 0) fail("Give at least one civil ID.");
 if (bad) process.exitCode = 1;

@@ -21,3 +21,13 @@ export function verifyEntryLink(civilId: string, signature: string): boolean {
   const given = Buffer.from(signature);
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
+
+/** "selfdeclaration.paaf.gov.kw" or "http://host:3000/" -> "https://selfdeclaration.paaf.gov.kw" (the scheme defaults to https). */
+export function normalizeBase(base: string): string {
+  const withScheme = /^https?:\/\//.test(base) ? base : `https://${base}`;
+  return withScheme.replace(/\/+$/, "");
+}
+
+export function entryLinkUrl(base: string, civilId: string, secret: string): string {
+  return `${normalizeBase(base)}/?c=${civilId}&k=${signEntryLink(civilId, secret)}`;
+}
