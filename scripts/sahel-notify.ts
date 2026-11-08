@@ -3,7 +3,7 @@
 import "dotenv/config";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { entryLinkSecret, entryLinkUrl } from "../src/lib/entry-link";
-import { TEMPLATE_IDS, buildPayload, describeTemplate, missingParams, sendNotification, type SahelParams, type TemplateId } from "../src/lib/sahel";
+import { SAHEL_SUCCESS_CODE, TEMPLATE_IDS, buildPayload, describeTemplate, missingParams, sendNotification, type SahelParams, type TemplateId } from "../src/lib/sahel";
 
 const TEST_URL = process.env.SAHEL_URL_TEST || "http://192.168.1.71:8080/sahel/notifications/single";
 const PROD_URL = process.env.SAHEL_URL_PROD || "http://192.168.1.71:8080/sahel/prod/notifications/single";
@@ -122,7 +122,9 @@ function alreadySent(mode: string): Set<string> {
   if (!existsSync(SENT_LOG)) return done;
   for (const line of readFileSync(SENT_LOG, "utf8").split(/\r?\n/)) {
     const [, logMode, logTemplate, civilId, status] = line.split(",");
-    if (logMode === mode && logTemplate === chosen && status === "ok") done.add(civilId);
+    // Earlier versions logged Sahel's refusals (HTTP 200, responseCode 901 ...) as "ok"; those people were not notified.
+    const code = Number(line.match(/responseCode"?\s*:?\s*(\d+)/)?.[1] ?? SAHEL_SUCCESS_CODE);
+    if (logMode === mode && logTemplate === chosen && status === "ok" && code === SAHEL_SUCCESS_CODE) done.add(civilId);
   }
   return done;
 }

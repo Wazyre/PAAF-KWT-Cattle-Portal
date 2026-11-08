@@ -170,7 +170,10 @@ export interface SendResult {
   detail: string;
 }
 
-/** POSTs one notification. ok means HTTP 2xx; the reply text is returned for the log. */
+/** Sahel answers HTTP 200 even when it refuses a message; its own code says what happened. */
+export const SAHEL_SUCCESS_CODE = 900;
+
+/** POSTs one notification. ok means HTTP 2xx and, when Sahel gives a responseCode, that it is 900 (success). */
 export async function sendNotification(url: string, payload: unknown, authHeader?: string): Promise<SendResult> {
   const headers: Record<string, string> = {};
   if (authHeader) {
@@ -179,7 +182,19 @@ export async function sendNotification(url: string, payload: unknown, authHeader
   }
   try {
     const reply = await postJson(url, payload, headers, 20000);
-    return { ok: reply.status >= 200 && reply.status < 300, status: reply.status, detail: reply.text.replace(/\s+/g, " ").slice(0, 200) };
+    const text = reply.text.replace(/\s+/g, " ").slice(0, 200);
+    const httpOk = reply.status >= 200 && reply.status < 300;
+    let body: { responseCode?: unknown; message?: unknown } | null = null;
+    try {
+      body = JSON.parse(reply.text);
+    } catch {
+      // not JSON: judged by the HTTP status alone
+    }
+    if (httpOk && body && body.responseCode !== undefined) {
+      const code = Number(body.responseCode);
+      return { ok: code === SAHEL_SUCCESS_CODE, status: reply.status, detail: `responseCode ${code}: ${String(body.message ?? "")}`.slice(0, 200) };
+    }
+    return { ok: httpOk, status: reply.status, detail: text };
   } catch (e) {
     const code = (e as { code?: string }).code;
     return { ok: false, status: 0, detail: `${(e as Error).message}${code ? ` (${code})` : ""}` };
