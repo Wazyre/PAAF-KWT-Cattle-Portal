@@ -149,7 +149,8 @@ export function missingParams(id: TemplateId, params: SahelParams): (keyof Sahel
   return TEMPLATES[id].needs.filter((key) => !params[key]?.trim());
 }
 
-export function buildPayload(id: TemplateId, civilId: string, link: string, params: SahelParams) {
+/** `link` is the button's actionUrl; null leaves the button out altogether. An empty string keeps the button with an empty actionUrl. */
+export function buildPayload(id: TemplateId, civilId: string, link: string | null, params: SahelParams) {
   const t = TEMPLATES[id];
   return {
     subscriberCivilId: civilId,
@@ -159,7 +160,7 @@ export function buildPayload(id: TemplateId, civilId: string, link: string, para
     ...(t.dataTableEn && { dataTableEn: fillAll(t.dataTableEn, params) }),
     isForSubscriber: true,
     notificationType: "livestock",
-    actionButtonRequestList: [{ actionType: "link", actionUrl: link, viewBag: "", labelAr: t.labelAr, labelEn: t.labelEn }]
+    actionButtonRequestList: link === null ? [] : [{ actionType: "link", actionUrl: link, viewBag: "", labelAr: t.labelAr, labelEn: t.labelEn }]
   };
 }
 

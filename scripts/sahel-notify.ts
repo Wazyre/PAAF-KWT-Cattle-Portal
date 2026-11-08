@@ -25,6 +25,8 @@ Message values (fill the [placeholders] of the template):
   --deadline "15 Dec 2026"   --contact "..."   --date "..."   --start "..."   --end "..."   --update-period "..."
 
 Options:
+  --no-link           send with an EMPTY actionUrl (the button stays, it opens nothing); needs no secret or address
+  --no-button         send without any button (empty actionButtonRequestList)
   --base <address>    the portal address used in the link (default: PORTAL_URL in .env), e.g. https://selfdeclaration.paaf.gov.kw
   --dry-run           show what would be sent (first message in full) and send nothing
   --prod --yes        send through the production Sahel service (without --yes it only previews)
@@ -71,15 +73,20 @@ const params: SahelParams = {
 const missing = missingParams(template, params);
 if (missing.length) fail(`The "${template}" message needs ${missing.map((m) => "--" + m.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())).join(", ")}.`);
 
+// Links are only needed when the message has a link button.
+const linkMode = flag("--no-button") ? "none" : flag("--no-link") ? "empty" : "signed";
+if (flag("--no-button") && flag("--no-link")) fail("Use --no-link or --no-button, not both.");
 const secret = entryLinkSecret();
-if (!secret) fail("ENTRY_LINK_SECRET is not set in .env (it signs the sign-in links).");
 const base = option("--base") || process.env.PORTAL_URL?.trim();
-if (!base) fail("Pass --base https://<portal address> (or set PORTAL_URL in .env).");
+if (linkMode === "signed") {
+  if (!secret) fail("ENTRY_LINK_SECRET is not set in .env (it signs the sign-in links). Use --no-link to send without a link.");
+  if (!base) fail("Pass --base https://<portal address> (or set PORTAL_URL in .env).");
+}
 
 // Narrowed copies for the functions below (TypeScript does not carry the checks above into them).
 const chosen: TemplateId = template;
-const portal: string = base;
-const signingKey: string = secret;
+// The button's actionUrl for one person: a signed link, an empty string, or null for no button.
+const linkFor = (civilId: string): string | null => (linkMode === "none" ? null : linkMode === "empty" ? "" : entryLinkUrl(base!, civilId, secret!));
 
 const prod = flag("--prod");
 const live = flag("--dry-run") ? false : prod ? flag("--yes") : true;
@@ -147,7 +154,7 @@ async function main() {
     process.exit(0);
   }
 
-  const sample = buildPayload(chosen, everyone[0], entryLinkUrl(portal, everyone[0], signingKey), params);
+  const sample = buildPayload(chosen, everyone[0], linkFor(everyone[0]), params);
   console.log(`${live ? "Sending" : "Preview of"} "${chosen}" to ${everyone.length} ${everyone.length === 1 ? "person" : "people"} through the ${mode.toUpperCase()} Sahel service:\n  ${url}`);
 
   if (!live) {
@@ -160,7 +167,7 @@ async function main() {
   let failed = 0;
   let streak = 0;
   for (const civilId of everyone) {
-    const payload = buildPayload(chosen, civilId, entryLinkUrl(portal, civilId, signingKey), params);
+    const payload = buildPayload(chosen, civilId, linkFor(civilId), params);
     const result = await sendNotification(url, payload, process.env.SAHEL_AUTH_HEADER);
     if (result.ok) {
       ok++;
