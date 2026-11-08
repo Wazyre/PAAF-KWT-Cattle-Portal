@@ -26,7 +26,16 @@ const clean = (v: string) =>
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
     .trim();
 
+// The generated database client is not in git: after an update it must be regenerated (the Windows service does this on every start).
+function superuserModelAvailable(): boolean {
+  if ((prisma as unknown as Record<string, unknown>).superuser !== undefined) return true;
+  console.error("The database client is out of date (it does not know the Superuser table yet).\nStop the portal (schtasks /End /TN \"Sheep Portal\"), then run: npm run db:generate  and  npm run db:push\nor simply restart the service, which does both.");
+  process.exitCode = 1;
+  return false;
+}
+
 async function main() {
+  if (!superuserModelAvailable()) return;
   const [command, rawId, ...nameParts] = process.argv.slice(2);
 
   if (command === "list") {

@@ -18,6 +18,7 @@
     "make:links": "tsx scripts/make-links.ts",
     "notify": "tsx scripts/sahel-notify.ts",
     "superuser": "tsx scripts/superuser.ts",
+    "remove:people": "tsx scripts/remove-people.ts",
     "loadtest:seed": "tsx scripts/loadtest-seed.ts",
     "export": "tsx scripts/export.ts",
     "db:backfill-flags": "tsx scripts/backfill-flags.ts"
