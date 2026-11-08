@@ -19,6 +19,8 @@ export async function resolveIdentity(
   const id = civilId.trim();
   if (!/^\d{12}$/.test(id)) return null;
   const citizen = await prisma.citizen.findUnique({ where: { civilId: id } });
-  if (!citizen) return null;
-  return { civilId: citizen.civilId, name: citizen.name };
+  if (citizen) return { civilId: citizen.civilId, name: citizen.name };
+  // A superuser can use the farmer portal as themselves even without being on the farmer list.
+  const superuser = await prisma.superuser.findUnique({ where: { civilId: id } });
+  return superuser ? { civilId: superuser.civilId, name: superuser.name } : null;
 }

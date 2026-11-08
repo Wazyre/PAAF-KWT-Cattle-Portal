@@ -189,6 +189,13 @@ model HeadSupervisor {
   name    String
 }
 
+/// Superusers: may open all three portals (farmer, investigator, head investigator) and see everything.
+/// Managed only from the command line with `npm run superuser`; there is no screen for it.
+model Superuser {
+  civilId String @id
+  name    String
+}
+
 /// One sign-in through PACI. The browser only ever sees `id` (a random token); `paciRequestId` is the
 /// identifier PACI echoes back on the callback and never leaves the server.
 model LoginAttempt {

@@ -121,7 +121,8 @@ export async function consumeApproval(token: string): Promise<{ civilId: string;
   const claimed = await prisma.loginAttempt.updateMany({ where: { id: token, status: "APPROVED", consumed: false }, data: { consumed: true } });
   if (claimed.count !== 1) return null;
   const who = await rolesFor(attempt.civilId);
-  return who ? { civilId: attempt.civilId, ...who } : null;
+  if (who?.superuser) console.log(`Superuser ending …${attempt.civilId.slice(-4)} signed in.`);
+  return who ? { civilId: attempt.civilId, name: who.name, roles: who.roles } : null;
 }
 
 /** Same-origin check for browser POSTs: the Origin header must name this site (or an ALLOWED_ORIGINS entry). Requests without one are not browsers. */

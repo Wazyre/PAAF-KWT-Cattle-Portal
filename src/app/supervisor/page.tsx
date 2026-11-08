@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/session";
+import { isSuperuser } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { ANIMAL_TYPES, HEAD_THRESHOLD, gatheringPointLabel } from "@/lib/constants";
 import type { AnimalType, GatheringPoint } from "@/generated/prisma/enums";
@@ -99,7 +100,23 @@ export default async function SupervisorPage(props: {
   const searchParams = await props.searchParams;
   const session = await requireRole("SUPERVISOR");
   const supervisor = await prisma.supervisor.findUnique({ where: { civilId: session.civilId } });
-  if (!supervisor) redirect("/?reason=denied");
+  if (!supervisor) {
+    // A superuser has no schedule of their own: point them at the head investigator portal, which lists everything.
+    if (await isSuperuser(session.civilId)) {
+      return (
+        <div className="space-y-5">
+          <div className="card">
+            <h1 className="text-xl font-bold text-gov-dark">مرحباً، {session.name}</h1>
+            <p className="mt-1 text-sm text-gray-600">حساب المشرف العام: لا يوجد جدول زيارات مسند إليك.</p>
+          </div>
+          <Link href="/head-supervisor" className="btn-primary inline-block">
+            فتح بوابة رئيس المفتشين لعرض جميع الإقرارات
+          </Link>
+        </div>
+      );
+    }
+    redirect("/?reason=denied");
+  }
 
   const allAssignments = await prisma.assignment.findMany({
     where: { supervisorId: supervisor.id },

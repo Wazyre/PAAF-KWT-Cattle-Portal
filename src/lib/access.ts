@@ -29,6 +29,8 @@ export async function isFeatureAllowed(
   feature: Feature,
   civilId: string
 ): Promise<boolean> {
+  // Superusers are never locked out by the switches, so they can always open the farmer forms.
+  if (await prisma.superuser.findUnique({ where: { civilId } })) return true;
   return isAllowed(await getFeatureState(feature), civilId);
 }
 
