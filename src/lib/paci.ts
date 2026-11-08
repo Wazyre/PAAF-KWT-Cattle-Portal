@@ -152,7 +152,9 @@ export async function requestPaciAuth(civilId: string): Promise<PaciStart> {
  * answer (to try the timeout), everything else is approved.
  */
 export function mockOutcome(civilId: string, createdAt: Date): "approved" | "refused" | null {
-  if (Date.now() - createdAt.getTime() < 3000) return null;
+  const configured = process.env.PACI_MOCK_DELAY_SECONDS;  // lets a load test imitate people taking longer to approve
+  const delay = configured && Number(configured) >= 0 ? Number(configured) : 3;
+  if (Date.now() - createdAt.getTime() < delay * 1000) return null;
   if (civilId.endsWith("8")) return null;
   return civilId.endsWith("9") ? "refused" : "approved";
 }
