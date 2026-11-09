@@ -118,6 +118,15 @@ export async function expandShortLink(url: string): Promise<string | null> {
   }
 }
 
+/** Coordinates from a pasted string or a Google Maps share link (expanding a short link first); null if it cannot be resolved. */
+export async function resolveLocation(input: string): Promise<LatLng | null> {
+  const direct = parseLatLng(input);
+  if (direct) return direct;
+  if (!isShortLink(input)) return null;
+  const expanded = await expandShortLink(input);
+  return expanded ? parseLatLng(expanded) : null;
+}
+
 const EARTH_RADIUS_M = 6371000;
 
 /** Great-circle distance between two points, in meters. */

@@ -111,6 +111,7 @@ Restore a backup (local mode): `pg_restore --clean --if-exists -h 127.0.0.1 -U s
 - **Investigators see only their assigned groups.** An investigator can open, save an audit for, or print only the declarations in groups the head investigator assigned to them (the same farmers their schedule lists); anything else looks like a missing record. Head investigators can open everything. One deliberate exception: an audit page lists nearby farmers' names and civil IDs in its proximity alerts, because that is how suspicious locations are caught.
 - **Superusers** can open all three portals and every declaration, audit, head-investigator tool and export, and the farmer form is never closed to them by the registration/update switches. They sign in through PACI like everyone else. Manage them only on the server: `npm run superuser -- add <civil id> "<name>"`, `npm run superuser -- remove <civil id>`, `npm run superuser -- list`. Removing one takes effect immediately, even for a session that is already signed in. A superuser has no investigator schedule of their own (the investigator page points them to the head investigator portal) and a declaration they submit in the farmer portal is stored under their own civil ID. Each superuser sign-in is written to the server log (last four digits only). Keep this list as short as possible.
 - **Removing people.** `npm run remove:people -- --role <farmer|investigator|head|superuser|all> <civil id>... [--file ids.txt] [--yes]` takes people off the sign-in lists; it takes effect immediately, even for someone already signed in. Without `--yes` it only shows what it would remove. Removing a farmer keeps their declaration unless you add `--with-declaration` (which also deletes its audit and revisions); removing an investigator also deletes the group assignments they hold. **After an update, `npm run superuser` or `npm run remove:people` may say the database client is out of date** (it is not stored in git): stop the portal (`schtasks /End /TN "Sheep Portal"`), run `npm run db:generate` and `npm run db:push`, or just restart the service, which does both.
+- **The declaration API** (section 3d) is protected by API keys created on the server with `npm run api:clients`; a key can read and replace any farmer's declaration, so keep it on the calling system's server only and limit who can reach this port.
 - Sign-in attempts are limited (10 per address per 10 minutes, one PACI request per civil ID per 30 seconds), but add rate limiting on the forwarding server too.
 - The portal itself speaks plain HTTP. Either turn on its HTTPS listener (above), or terminate HTTPS on the forwarding server and keep port 3000 reachable only from it (the firewall rule above). Pass `X-Forwarded-Proto: https` so the session cookie is marked Secure (or set `COOKIE_SECURE=true`).
 - Server-side fetching of Google Maps short links is restricted to Google's own hosts.
@@ -188,6 +189,33 @@ For local testing without PACI, add `PACI_MODE="mock"` to `.env` (the file `.env
 
 ---
 
+## 3d. Declaration API (for a farmer form hosted elsewhere)
+
+The farmer form can be built and hosted on another system, which then reads and writes the declarations here through a REST API. The API does what the farmer portal does: it tells a **first declaration** from an **update**, checks the data with the same rules, stores the previous version when a declaration is edited, honours the registration / update switches (`npm run access`), and records that the farmer accepted the legal text. The farmer pages in this portal stay as they are.
+
+- **Swagger UI:** `/api/docs` (works with no internet access; the scripts are served by the portal itself). The machine-readable description is `/api/v1/openapi.json`, which any code generator or Postman can import.
+- **Endpoints** (all under `/api/v1`, all JSON):
+
+| Call | What it is for |
+| ---- | -------------- |
+| `GET /farmers/{civilId}` | New or update? `mode` is `NEW` or `UPDATE`; `allowed` says whether the switches let this farmer submit; the farmer's name; the legal version. |
+| `GET /farmers/{civilId}/declaration` | The stored declaration, to prefill the edit form. |
+| `PUT /farmers/{civilId}/declaration` | Create the declaration, or replace it when one exists (201 created, 200 updated or unchanged). |
+| `GET /legal` | The legal text, word for word as the portal shows it, with its version. |
+| `GET /reference` | Animal types and gathering points with their Arabic labels, and the limits. |
+| `GET /locations/resolve?link=` | Coordinates from a pasted location or a Google Maps link, for the map pin. |
+
+- **Keys.** Every call except the docs needs `Authorization: Bearer <key>`. Create a key on the server with `npm run api:clients -- create farmer-form` (the key is printed **once**; only a hash is stored). `list` shows each client and when it was last used, `revoke <name>` stops a key on its next request, and `rotate <name>` replaces it. Give each calling system its own name: it is written to the server log on every write and kept with each legal acceptance.
+- **The caller signs the farmer in, not this API.** Whoever holds a key can read and replace *any* farmer's declaration, so the key must stay on the other system's server (never in a web page or app), and the API must not be given CORS headers. Restrict who can reach the port at the firewall as well, and use HTTPS between the two systems.
+- **A first declaration needs the legal acceptance** (`"legal": { "accepted": true, "version": "..." }`); an update does not, as in the portal. Each acceptance is stored in `LegalAcceptance` with the version, a hash of the exact text, the time and the calling client. The text lives in `src/lib/legal.ts` and the portal's own legal page reads from the same file: if you change the wording, **bump `LEGAL_VERSION`** there, and the API will refuse acceptances of the old text until the form shows the new one.
+- **Same rules as the form,** enforced on the server: Kuwait phone numbers, at least one location, males + females = chipped heads, a gathering point and coordinates for each location (read from the pasted link when not sent), and sites of the same animal type at least 100 m apart. Every problem is reported at once with the path of the field and the portal's Arabic wording, ready to show to the farmer.
+- **Safe to retry.** A `PUT` is saved in one transaction with the farmer's record locked, so two submissions at the same moment queue up instead of corrupting each other, and sending exactly what is stored changes nothing. For a stricter guard, send `If-None-Match: *` (create only) or `If-Match: <ETag>` (update only if nobody changed it since it was loaded); a failed guard is 412.
+- The farmer's **name always comes from the farmer list**, never from the request, and a civil ID that is not on the list gets 404 `NOT_REGISTERED`.
+- Removing a farmer with `npm run remove:people -- --with-declaration` deletes the declaration and its history but keeps the `LegalAcceptance` records, as proof of what was accepted.
+- After an update, `npm run api:clients` says so if the database client is out of date: restart the service, which regenerates it and adds the new tables.
+
+---
+
 ## 3b. Developer setup (≈15 minutes)
 
 Prerequisites: Node 20.19+, Docker Desktop, Git.
@@ -256,6 +284,8 @@ src/
       [id]/page.tsx                 Read-only audit view for the head
     api/resolve-location/route.ts   Server endpoint that expands short links
                                     and extracts lat/lng (used by the client form)
+    api/v1/                         Declaration API for an outside farmer form (§3d)
+    api/docs/                       Swagger UI, served from this server
   components/
     BrandLogo.tsx                   /logo.png with SVG fallback
     DatePicker.tsx                  Custom DD-MM-YYYY calendar (ISO in hidden input)
@@ -272,6 +302,8 @@ src/
     geo.ts                          parseLatLng / expandShortLink / distanceMeters
     chips.ts                        processChipFile — parsing + windowing + flags
     proximity.ts                    findProximityHits — 5m cross-farmer check
+    legal.ts                        The legal text + LEGAL_VERSION (portal and API share it)
+    api/                            API keys, validation, saving, OpenAPI description
 prisma/
   schema.prisma                     Full data model (§7)
   seed.ts                           Demo citizens + supervisors

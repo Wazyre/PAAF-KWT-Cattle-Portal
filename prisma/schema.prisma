@@ -196,6 +196,31 @@ model Superuser {
   name    String
 }
 
+/// Outside systems allowed to call the declaration API (/api/v1). Managed only from the command line with
+/// `npm run api:clients`. Only a SHA-256 hash of the key is stored; the key itself is shown once, when it is created.
+model ApiClient {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique
+  keyHash    String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+}
+
+/// Proof that a farmer accepted the legal terms: which version and exact text, when, and through which channel.
+/// Written by the declaration API. No foreign key: the record outlives the declaration it was given for.
+model LegalAcceptance {
+  id         Int      @id @default(autoincrement())
+  civilId    String
+  version    String
+  textHash   String
+  acceptedAt DateTime @default(now())
+  /// The API client that submitted it.
+  source     String
+
+  @@index([civilId])
+}
+
 /// One sign-in through PACI. The browser only ever sees `id` (a random token); `paciRequestId` is the
 /// identifier PACI echoes back on the callback and never leaves the server.
 model LoginAttempt {

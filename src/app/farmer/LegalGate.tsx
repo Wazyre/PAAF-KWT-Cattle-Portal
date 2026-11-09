@@ -4,6 +4,7 @@
 // `existing` check in farmer/page.tsx already handles skipping the gate for returning farmers.
 
 import { useRef, useState } from "react";
+import { LEGAL_CONFIRMATION, LEGAL_HEADING, LEGAL_SECTIONS } from "@/lib/legal";
 
 // Wraps DeclarationForm for new users. Renders the legal page until the user slides to confirm.
 export default function LegalGate({ children }: { children: React.ReactNode }) {
@@ -15,48 +16,27 @@ export default function LegalGate({ children }: { children: React.ReactNode }) {
     <div className="space-y-5">
       <div className="card space-y-6">
         <div>
-          <h2 className="text-lg font-bold text-gov-dark">
-            قبل البدء، يرجى قراءة البنود التالية والموافقة عليها
-          </h2>
+          <h2 className="text-lg font-bold text-gov-dark">{LEGAL_HEADING}</h2>
         </div>
 
-        <section className="space-y-2">
-          <h3 className="text-base font-bold text-gov-dark">1. المقدمة</h3>
-          <p className="text-sm leading-relaxed text-gray-800 text-justify">
-            تهدف الهيئة العامة لشؤون الزراعة والثروة السمكية، من خلال إنشاء المنصة الإلكترونية لحصر أعداد الثروة الحيوانية وتطوير منظومة إدارة بياناتها في دولة الكويت، إلى تمكين المستفيدين من برنامج الدعم من إنجاز الإجراءات والخدمات ذات الصلة إلكترونياً بكل يسر وأمان، دون الحاجة إلى الحضور الشخصي. كما تؤكد الهيئة التزامها بسرية البيانات الشخصية وحمايتها وفقاً للتشريعات والضوابط المعمول بها، وصون حقوق المستفيدين من برامج الدعم، وتعزيز مبادئ الشفافية والدقة والموثوقية في جمع البيانات وتحديثها ومعالجتها، بما يسهم في رفع كفاءة إدارة الثروة الحيوانية ودعم اتخاذ القرار.
-          </p>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="text-base font-bold text-gov-dark">2. إلزامية التسجيل</h3>
-          <p className="text-sm leading-relaxed text-gray-800 text-justify">
-            يعد التسجيل في المنصة الإلكترونية شرطاً أساسياً للاستفادة من برامج الدعم التي تقدمها الهيئة العامة لشؤون الزراعة والثروة السمكية. وفي حال عدم قيام المستفيد بالتسجيل أو استكمال البيانات المطلوبة خلال المدة المحددة، يجوز للهيئة تعليق صرف الدعم أو اتخاذ ما تراه مناسباً من إجراءات تنظيمية وفقاً للأحكام والضوابط المعمول بها.
-          </p>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="text-base font-bold text-gov-dark">3. الإقرار والتعهد</h3>
-          <div className="space-y-3 text-sm leading-relaxed text-gray-800 text-justify">
-            <p>
-              أقر أنا مقدم طلب التسجيل بأن جميع البيانات والمعلومات والمستندات المرفوعة عبر المنصة الإلكترونية التابعة للهيئة العامة لشؤون الزراعة والثروة السمكية صحيحة ودقيقة وكاملة، وأتعهد بتحديثها فور حدوث أي تغيير يطرأ عليها.
-            </p>
-            <p>
-              كما أوافق على حق الهيئة في التحقق من صحة البيانات والمعلومات المرفوعة بكافة الوسائل التي تراها مناسبة، بما في ذلك الزيارات الميدانية والربط أو الاستعلام مع الجهات ذات العلاقة، وذلك وفقاً للتشريعات واللوائح والضوابط المعمول بها في دولة الكويت.
-            </p>
-            <p>
-              وأقر بعلمي بأن تقديم أي بيانات، أو معلومات غير صحيحة، أو غير مكتملة، أو مضللة، أو الامتناع عن تحديثها عند تغيرها، قد يترتب عليه تعليق أو إيقاف الاستفادة من برامج الدعم أو الخدمات التي تقدمها الهيئة، وذلك دون الإخلال بحق الهيئة في اتخاذ ما يلزم من إجراءات إدارية أو قانونية وفقاً للأنظمة واللوائح المعتمدة.
-            </p>
-            <p>
-              وبموافقتي على هذا الإقرار، أتحمل كامل المسؤولية عن صحة ودقة البيانات والمعلومات المرفوعة، وأقر بأن الهيئة غير مسؤولة عن أي آثار أو نتائج تترتب على تقديم بيانات غير صحيحة أو مخالفة للواقع.
-            </p>
-          </div>
-        </section>
+        {LEGAL_SECTIONS.map((section) => (
+          <section key={section.title} className="space-y-2">
+            <h3 className="text-base font-bold text-gov-dark">{section.title}</h3>
+            {section.paragraphs.length === 1 ? (
+              <p className="text-sm leading-relaxed text-gray-800 text-justify">{section.paragraphs[0]}</p>
+            ) : (
+              <div className="space-y-3 text-sm leading-relaxed text-gray-800 text-justify">
+                {section.paragraphs.map((p) => (
+                  <p key={p}>{p}</p>
+                ))}
+              </div>
+            )}
+          </section>
+        ))}
       </div>
 
       <div className="card">
-        <p className="mt-3 text-center text-md text-black-500">
-           أُقرّ وأتعهّد بأن جميع البيانات والمعلومات الواردة في هذا الإقرار صحيحةٌ وكاملةٌ ومطابقةٌ للواقع، وأتحمّل المسؤولية القانونية الكاملة عن أي معلومات مغلوطة أو ناقصة.
-        </p>
+        <p className="mt-3 text-center text-md text-black-500">{LEGAL_CONFIRMATION}</p>
         <SlideToConfirm onConfirm={() => setConfirmed(true)} />
         
       </div>
