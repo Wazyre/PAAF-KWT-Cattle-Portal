@@ -1,9 +1,9 @@
-// Sends Sahel notifications that carry a signed portal sign-in link. Run via `npm run notify -- <options>`.
+// Sends Sahel notifications whose button opens the self-declaration service (or, with --link, a signed portal sign-in link). Run via `npm run notify -- <options>`.
 // Nothing is sent to the production Sahel service unless --prod AND --yes are both given.
 import "dotenv/config";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { entryLinkSecret, entryLinkUrl } from "../src/lib/entry-link";
-import { SAHEL_SUCCESS_CODE, TEMPLATE_IDS, buildPayload, describeTemplate, missingParams, sendNotification, type SahelParams, type TemplateId } from "../src/lib/sahel";
+import { SAHEL_SUCCESS_CODE, SERVICE_ACTION_URL, TEMPLATE_IDS, buildPayload, type Button, describeTemplate, missingParams, sendNotification, type SahelParams, type TemplateId } from "../src/lib/sahel";
 
 const TEST_URL = process.env.SAHEL_URL_TEST || "http://192.168.1.71:8080/sahel/notifications/single";
 const PROD_URL = process.env.SAHEL_URL_PROD || "http://192.168.1.71:8080/sahel/prod/notifications/single";
@@ -13,7 +13,7 @@ const USAGE = `
 Usage: npm run notify -- --template <name> [who] [message values] [options]
 
 Templates:
-${TEMPLATE_IDS.map((id) => `  ${id.padEnd(14)} ${describeTemplate(id).describe}${describeTemplate(id).needs.length ? `  (needs ${describeTemplate(id).needs.map((n) => "--" + n.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())).join(" ")})` : ""}`).join("\n")}
+${TEMPLATE_IDS.map((id) => `  ${id.padEnd(18)} ${describeTemplate(id).describe}${describeTemplate(id).needs.length ? `  (needs ${describeTemplate(id).needs.map((n) => "--" + n.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())).join(" ")})` : ""}`).join("\n")}
 
 Who gets it (pick one or more):
   <civil id> ...      civil IDs listed on the command line
@@ -22,10 +22,12 @@ Who gets it (pick one or more):
   --registered        every citizen who has submitted a declaration
 
 Message values (fill the [placeholders] of the template):
-  --deadline "15 Dec 2026"   --contact "..."   --date "..."   --start "..."   --end "..."   --update-period "..."
+  --deadline "15 Dec 2026"   --contact "..."   --date "..."   --start "..."   --end "..."   --update-period "..."   --reason "..."
 
 Options:
-  --no-link           send with an EMPTY actionUrl (the button stays, it opens nothing); needs no secret or address
+  (default)           the button opens the self-declaration service in Sahel (actionType "service"; actionUrl "${SERVICE_ACTION_URL.test}" on the test service, "${SERVICE_ACTION_URL.prod}" on production)
+  --link              the button opens the portal through a signed sign-in link instead (needs ENTRY_LINK_SECRET and --base or PORTAL_URL)
+  --no-link           send a link button with an EMPTY actionUrl (the button stays, it opens nothing); needs no secret or address
   --no-button         send without any button (empty actionButtonRequestList)
   --base <address>    the portal address used in the link (default: PORTAL_URL in .env), e.g. https://selfdeclaration.paaf.gov.kw
   --dry-run           show what would be sent (first message in full) and send nothing
@@ -35,7 +37,7 @@ Options:
   --delay <ms>        pause between messages (default 300)
 
 Without --prod the TEST service is used, which only accepts the Sahel test civil ID.
-Settings in .env: ENTRY_LINK_SECRET (required), PORTAL_URL, SAHEL_URL_TEST, SAHEL_URL_PROD, SAHEL_AUTH_HEADER ("Name: value", only if Sahel requires one).
+Settings in .env: ENTRY_LINK_SECRET and PORTAL_URL (only for --link), SAHEL_URL_TEST, SAHEL_URL_PROD, SAHEL_AUTH_HEADER ("Name: value", only if Sahel requires one).
 Every send is recorded in ${SENT_LOG}.
 `;
 
@@ -52,7 +54,7 @@ const option = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const VALUE_OPTIONS = ["--template", "--file", "--base", "--limit", "--delay", "--deadline", "--contact", "--date", "--start", "--end", "--update-period"];
+const VALUE_OPTIONS = ["--template", "--file", "--base", "--limit", "--delay", "--deadline", "--contact", "--date", "--start", "--end", "--update-period", "--reason"];
 
 if (flag("--help") || flag("-h") || args.length === 0) {
   console.log(USAGE);
@@ -68,25 +70,27 @@ const params: SahelParams = {
   date: option("--date"),
   start: option("--start"),
   end: option("--end"),
-  updatePeriod: option("--update-period")
+  updatePeriod: option("--update-period"),
+  reason: option("--reason")
 };
 const missing = missingParams(template, params);
 if (missing.length) fail(`The "${template}" message needs ${missing.map((m) => "--" + m.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())).join(", ")}.`);
 
-// Links are only needed when the message has a link button.
-const linkMode = flag("--no-button") ? "none" : flag("--no-link") ? "empty" : "signed";
-if (flag("--no-button") && flag("--no-link")) fail("Use --no-link or --no-button, not both.");
+// Links are only needed when the message has a signed-link button.
+const linkMode = flag("--no-button") ? "none" : flag("--no-link") ? "empty" : flag("--link") ? "signed" : "service";
+if (["--link", "--no-link", "--no-button"].filter(flag).length > 1) fail("Use only one of --link, --no-link and --no-button.");
 const secret = entryLinkSecret();
 const base = option("--base") || process.env.PORTAL_URL?.trim();
 if (linkMode === "signed") {
-  if (!secret) fail("ENTRY_LINK_SECRET is not set in .env (it signs the sign-in links). Use --no-link to send without a link.");
+  if (!secret) fail("ENTRY_LINK_SECRET is not set in .env (it signs the sign-in links). Leave out --link to send the service button instead.");
   if (!base) fail("Pass --base https://<portal address> (or set PORTAL_URL in .env).");
 }
 
 // Narrowed copies for the functions below (TypeScript does not carry the checks above into them).
 const chosen: TemplateId = template;
-// The button's actionUrl for one person: a signed link, an empty string, or null for no button.
-const linkFor = (civilId: string): string | null => (linkMode === "none" ? null : linkMode === "empty" ? "" : entryLinkUrl(base!, civilId, secret!));
+// The button for one person: the service button, a signed link, an empty link, or null for no button.
+const buttonFor = (civilId: string): Button | null =>
+  linkMode === "none" ? null : linkMode === "service" ? { type: "service", actionUrl: SERVICE_ACTION_URL[prod ? "prod" : "test"] } : { type: "link", url: linkMode === "empty" ? "" : entryLinkUrl(base!, civilId, secret!) };
 
 const prod = flag("--prod");
 const live = flag("--dry-run") ? false : prod ? flag("--yes") : true;
@@ -156,7 +160,7 @@ async function main() {
     process.exit(0);
   }
 
-  const sample = buildPayload(chosen, everyone[0], linkFor(everyone[0]), params);
+  const sample = buildPayload(chosen, everyone[0], buttonFor(everyone[0]), params);
   console.log(`${live ? "Sending" : "Preview of"} "${chosen}" to ${everyone.length} ${everyone.length === 1 ? "person" : "people"} through the ${mode.toUpperCase()} Sahel service:\n  ${url}`);
 
   if (!live) {
@@ -169,7 +173,7 @@ async function main() {
   let failed = 0;
   let streak = 0;
   for (const civilId of everyone) {
-    const payload = buildPayload(chosen, civilId, linkFor(civilId), params);
+    const payload = buildPayload(chosen, civilId, buttonFor(civilId), params);
     const result = await sendNotification(url, payload, process.env.SAHEL_AUTH_HEADER);
     if (result.ok) {
       ok++;

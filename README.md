@@ -153,7 +153,7 @@ Both accept `--dry-run`. The head investigator can also add or remove investigat
   ```
 
   Each line prints `civilId,link`; the link goes in `actionUrl` of the notification for that person. Links do not expire; changing `ENTRY_LINK_SECRET` cancels every link issued so far. Without `ENTRY_LINK_SECRET` links are not recognised and the form is shown.
-- **Sending the notifications.** `npm run notify` builds the agreed Sahel messages, puts each person's signed link in the button, and sends them through the Sahel service. The messages are `register`, `confirmed`, `reminder`, `final-warning` and `field-visit` (run `npm run notify -- --help` for what each one needs). Examples:
+- **Sending the notifications.** `npm run notify` builds the agreed Sahel messages, gives each one a button that opens the self-declaration service in Sahel (`actionType` `service`; `actionUrl` `1254` on the test service, `self-declaration` on production), and sends them through the Sahel service. The messages are `register`, `confirmed`, `reminder`, `final-warning`, `field-visit`, `visit-failed` and `support-suspended` (the last two have no button; run `npm run notify -- --help` for what each one needs). Examples:
 
   ```
   # preview, nothing is sent
@@ -165,7 +165,7 @@ Both accept `--dry-run`. The head investigator can also add or remove investigat
   npm run notify -- --template reminder --deadline "15 December 2026" --contact "Hotline 1234" --unregistered --prod --yes
   ```
 
-  Who gets it: civil IDs on the command line, `--file ids.txt`, `--unregistered` (citizens in the database without a declaration) or `--registered`. `--no-link` sends the message with an empty `actionUrl` (no secret or address needed) and `--no-button` sends it with no button at all. Nothing goes to the production service without both `--prod` and `--yes`. Every send is recorded in `logs\sahel-sent.csv`, and a person who already received a message is skipped on a repeat run unless you pass `--resend`; five failures in a row stop the run. Settings in `.env`: `ENTRY_LINK_SECRET`, `PORTAL_URL` (the address in the links), and optionally `SAHEL_URL_TEST`, `SAHEL_URL_PROD`, `SAHEL_AUTH_HEADER`.
+  Who gets it: civil IDs on the command line, `--file ids.txt`, `--unregistered` (citizens in the database without a declaration) or `--registered`. `--link` puts each person's signed sign-in link in the button instead of the service button (needs `ENTRY_LINK_SECRET` and `PORTAL_URL` or `--base`), `--no-link` sends a link button with an empty `actionUrl`, and `--no-button` sends no button at all. Nothing goes to the production service without both `--prod` and `--yes`. Every send is recorded in `logs\sahel-sent.csv`, and a person who already received a message is skipped on a repeat run unless you pass `--resend`; five failures in a row stop the run. Settings in `.env`: `ENTRY_LINK_SECRET`, `PORTAL_URL` (the address in the links), and optionally `SAHEL_URL_TEST`, `SAHEL_URL_PROD`, `SAHEL_AUTH_HEADER`.
 - **The Auth reply.** PACI answers `{SubmitResult, HasIdentity, Erorr, CivilID}` ("Erorr" is their spelling). When the request is submitted, `SubmitResult` holds the request id (a GUID) and `CivilID` is the civil number. `HasIdentity` false shows "no digital identity", and `SubmitResult` false shows "could not send". The server log records these values and only the first 8 characters of the id.
 
 Settings in `.env` (all optional):
