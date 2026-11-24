@@ -37,8 +37,16 @@ const TEMPLATES: Record<TemplateId, Template> = {
       "عزيزي المربي، تدعوكم الهيئة العامة لشؤون الزراعة والثروة السمكية إلى التسجيل في المنصة الإلكترونية، واستكمال البيانات المطلوبة بدقة، وتقديم الإقرار الذاتي بصحتها، وذلك في موعد أقصاه {deadline}. ويُعد استكمال التسجيل شرطاً للاستمرار في الاستفادة من برامج دعم الحيوانية التي تقدمه الهيئة. وفي حال عدم استكمال التسجيل خلال المهلة المحددة، فسيتم إيقاف صرف الدعم وفقاً للضوابط واللوائح والقرارات المعتمدة لدى الهيئة.",
     bodyEn:
       "Dear livestock breeder, the Public Authority for Agriculture Affairs and Fish Resources invites you to register on the electronic platform, complete the required information accurately, and submit the self-declaration confirming its accuracy, no later than {deadline}. Completing registration is a condition for continuing to benefit from the animal support programs provided by the Authority. If registration is not completed within the specified period, support payments will be suspended in accordance with the regulations, bylaws, and decisions approved by the Authority.",
-    dataTableAr: { "العنوان": "التسجيل وتقديم الإقرار الذاتي", "آخر موعد للتسجيل": "{deadline}", "قناة التواصل": "{contact}" },
-    dataTableEn: { Title: "Registration and Self-Declaration", "Registration Deadline": "{deadline}", "Contact Channel": "{contact}" },
+    dataTableAr: { 
+      "العنوان": "تقديم الإقرار الذاتي", 
+      "آخر موعد للتسجيل": "{deadline}", 
+      "قناة التواصل": "{contact}" 
+    },
+    dataTableEn: { 
+      Title: "Registration and Self-Declaration", 
+      "Registration Deadline": "{deadline}", 
+      "Contact Channel": "{contact}" 
+    },
     labelAr: "التسجيل الآن",
     labelEn: "Register Now"
   },
@@ -133,8 +141,8 @@ const TEMPLATES: Record<TemplateId, Template> = {
       "Information Update Period": "{updatePeriod}",
       "Contact Channel": "{contact}"
     },
-    labelAr: "تحديث البيانات",
-    labelEn: "Update Information"
+    labelAr: "تحديث اللإقرار الذاتي",
+    labelEn: "Update Self-Declaration"
   },
   "visit-failed": {
     describe: "Field inventory could not be completed",
