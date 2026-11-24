@@ -20,6 +20,7 @@
     "api:clients": "tsx scripts/api-clients.ts",
     "superuser": "tsx scripts/superuser.ts",
     "remove:people": "tsx scripts/remove-people.ts",
+    "reset:declaration": "tsx scripts/reset-declarations.ts",
     "loadtest:seed": "tsx scripts/loadtest-seed.ts",
     "export": "tsx scripts/export.ts",
     "db:backfill-flags": "tsx scripts/backfill-flags.ts"
